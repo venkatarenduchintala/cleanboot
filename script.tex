@@ -1,0 +1,158 @@
+\documentclass[10pt,a4paper]{book}
+
+% UTF8 and Language
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+
+% Page layout
+\usepackage{geometry}
+\geometry{a4paper, margin=3cm}
+
+% Font and appearance
+\usepackage{lmodern}
+\usepackage{setspace}
+\onehalfspacing
+
+% Code highlighting with minted
+\usepackage{minted}
+\usemintedstyle{colorful} % You can change the style (e.g., friendly, bw, etc.)
+\usepackage{caption} % for caption formatting
+\usepackage{float} % for [H] placement
+\usepackage{chngcntr} % for numbering listings per chapter (optional)
+\counterwithin{listing}{chapter} % makes listings numbered like 1.2.3 if desired
+
+\usepackage{svg}
+
+% Other packages
+\usepackage{longtable}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, fit, shapes, backgrounds}
+\usepackage[table]{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{graphicx}
+\usepackage{csquotes} % Recommended with babel
+\usepackage{fancyhdr}
+\usepackage{float}
+\pagestyle{fancy}
+\fancyhead{}
+\fancyfoot{}
+\fancyhead[LE,RO]{\thepage}
+\fancyhead[RE]{\leftmark}
+\fancyhead[LO]{\rightmark}
+
+\usepackage{enumitem}
+
+\usepackage{epstopdf}
+
+
+
+\usepackage{fvextra}
+
+\DefineVerbatimEnvironment{VerbatimBreak}{Verbatim}{
+  breaklines=true,
+  breakanywhere=true, % very important for breaking long URLs anywhere
+  breaksymbol=\tiny\ensuremath{\hookrightarrow},
+  fontsize=\small,
+  formatcom=\color{black}\ttfamily,
+  commandchars=\\\{\} % disables URL recognition (important if hyperref is loaded)
+}
+
+\usepackage[most]{tcolorbox}
+\newtcolorbox{terminalbox}{
+  colback=gray!10,
+  colframe=gray!50,
+  boxrule=0.5pt,
+  arc=2pt,
+  boxsep=5pt,
+  left=5pt,
+  right=5pt,
+  top=5pt,
+  bottom=5pt,
+  breakable
+}
+
+
+
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+\newcounter{rule}
+\renewcommand{\therule}{\arabic{rule}}
+
+\newtcolorbox[
+  auto counter,
+  number within=chapter
+]{rulebox}[2][]{%
+  breakable,
+  colback=gray!10,
+  colframe=gray!60,
+  boxrule=0.4pt,
+  arc=2pt,
+  left=6pt,
+  right=6pt,
+  top=6pt,
+  bottom=6pt,
+  fonttitle=\bfseries,
+  title={\S~\thetcbcounter\quad #2},
+  #1
+}
+
+\newcommand{\ruleref}[1]{§~\ref{#1}}
+
+\usepackage{dirtree}
+
+\usepackage{draftwatermark}
+\SetWatermarkText{DRAFT}
+\SetWatermarkScale{3}
+\SetWatermarkColor[gray]{0.97}
+\SetWatermarkAngle{45}        
+\SetWatermarkFontSize{2cm}
+
+\usepackage[
+  backend=biber,
+  style=numeric, % oder numeric, alphabetic, etc.
+  sorting=nyt
+]{biblatex}
+\addbibresource{references.bib}
+
+% Title Information
+\title{CleanBoot - Ein Vorschlag für saubere Backendprogrammierung mit Java/Springboot}
+
+
+\author{Dr. Peter Heinrich, ZHAW <peter.heinrich@zhaw.ch>}
+\date{\today}
+
+\begin{document}
+
+\frontmatter
+\maketitle
+
+
+\include{frontmatter/frontmatter}
+
+
+
+\tableofcontents
+
+\mainmatter
+
+\chapter{Einleitung}
+\include{chapter0/chapter0}
+
+\chapter{Aller Anfang ist leicht - aber nicht immer trivial}
+\include{chapter1/chapter1_trivialApproach}
+
+\chapter{Realistischeres Beispiel: PLM für die Elektronikentwicklung}
+\include{chapter2/backend}
+\include{chapter2/toolintegration}
+\include{chapter2/frontend}
+
+
+\chapter{Zum Schluss}
+\include{backmatter/backmatter}
+
+\printbibliography[title={Literatur}]
+
+\end{document}
+

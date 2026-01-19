@@ -1,0 +1,126 @@
+\section{Integration in ein EDA-System}
+
+Mit dem nächsten Adapter binden wir ein technisches System an unser Backend
+an. In diesem Fall ein EDA-System \textit{Electronic Design Automation}, also
+im Wesentlichen ein Elektronik-CAD. Für dieses Beispiel nehmen wir 
+\textit{KiCad}, das aktuell wohl bekannteste Open-Source EDA. KiCad hat selbst
+eine Bauteilbibliothek, kann aber über mehrere Mechanismen und Plugins externe
+Bibliotheken einbinden. In grösseren Unternehmen ist es eigentlich die Regel
+über ein zentralisiertes Bauteilmanagement zu verfügen. Genau das simulieren
+wir und nutzen die Fähigkeit von KiCad, ein REST-Interface anzusprechen.
+
+Der Spezifikation des REST-Interfaces \cite{kicad_http_2026} können wir
+entnehmen, dass es im Wesentlichen drei Abfragearten gibt: Welche
+Kategorien es gibt, welche Bauteile sich in einer bestimmten Kategorie
+befinden und natürlich Details zu einem bestimmten Bauteil abzufragen.
+
+Als Ergebnis wird JSON erwartet. Allerdings mit der Einschränkung, dass alle
+Elemente reine Strings sind. KiCad parst und konvertiert das eigenständig,
+wir werden auf Seite der Adapter das gleiche tun.
+
+\begin{listing}[H]
+\begin{minted}{java}
+public record KicadComponentDetail(
+            String id,
+            String name,
+            String description,
+            String symbolIdStr,
+            String exclude_from_bom,
+            String exclude_from_board,
+            String exclude_from_sim,
+            Map<String, KicadFieldData> fields) {
+
+        public static KicadComponentDetail fromDomain(Component c) {
+            return new KicadComponentDetail(
+                c.ipn().value(), c.ipn().value(), c.ipn().value(),
+                c.symbol().value(), "false", "false", "false",
+                Map.of("Value", new KicadFieldData(extractValue(c), "true"),
+                    "Footprint", new KicadFieldData(c.footprint().value(), "false")));
+        }
+        
+        private static String extractValue(Component c) {
+                Optional<SpecificationItem> nominalItem = c.attributes().entrySet().stream()
+                    .filter(e -> e.getValue().property().name().contains("NOMINAL"))
+                    .findFirst().map(e -> e.getValue());
+                if (nominalItem.isEmpty()) {
+                    return c.orderableItems().get(0).mpn().value();
+                }
+                return nominalItem.get().value() + nominalItem.get().unit().symbol();
+        }
+}
+\end{minted}
+\caption{KiCad Adapter (KicadComponentDetail - DTO)}
+\label{lst:kicadDetailDTO}
+\end{listing}
+Im Beispiel schauen wir uns die Abbildung unserer Components in das 
+entsprechende KiCad-DTO an (Listing \ref{lst:kicadDetailDTO}).
+Da es keinen Rückweg gibt - also wir vom CAD-Programm nie Daten erhalten werden -
+ist auch nur die Abbildungsrichtung von der Domäne zu KiCad realisiert. Das
+erste ``Problem'' ist, dass KiCad einen eindeutigen Identifier benötigt.
+Den realisieren wir über die \textit{Internal Part Number}, die wir ohnehin
+für eindeutig erklärt haben. \textit{Name} und \textit{Beschreibung} setzen wir
+für unsere Tests vorerst ebenfalls auf unsere IPN. Eine gute Beschreibung des
+Bauteils nebst Links zu den Datenblättern könnte man jederzeit im Domainmodell
+nachführen. Weitere Werte erwartet KiCad als assioziatives Array - also einer
+Map. Footprint und Value sind fixe Feldschlüssel, die KiCad versteht. Die
+Bereitstellung eines ``Values'' ist eine kleine Herausforderung. Nicht jedes
+Bauteil hat das. Ein Widerstand z.B. hat natürlich einen klaren Wert - 
+nämlich seinen Widerstandswert. Ein integrierter Schaltkreis nicht unbedingt.
+Hier habe ich mich entschieden, nach \textit{Properties} zu suchen, die
+mit \texttt{NOMINAL} beginnen. Ein Bauteil mit Werten sollte so ein 
+NOMINAL-Feld bereitstellen. Falls das nicht vorhanden ist, geben wir
+die MPN des ersten Suppliers an KiCad weiter. Das ist an diesem Punkt
+sicher noch ausbaufähig. Es zeigt aber schön, wie wir uns beim Modellieren
+der Domäne (unnötig) eingeschränkt hätten, wenn wir nur von diesem einen
+CAD-Produkt ausgegangen wären. Andere CAD-Produkte hätten vielleicht ganz
+andere Anforderungen.
+
+Am Schluss wollen wir noch kurz in den REST-Controller schauen.
+Überraschungen sollte es nun ja keine mehr geben:
+
+\begin{listing}[H]
+\begin{minted}{java}
+@RestController
+@RequestMapping("/kicad-api/v1")
+@AllArgsConstructor
+public class KiCadControllerREST {
+
+    private final EDAAccessPartDetailsUseCase accessPartDetailsUseCase;
+
+    ...
+
+    @GetMapping("/parts/{id}.json")
+    public ResponseEntity<KicadComponentDetail> part(@PathVariable String id) {
+        return ResponseEntity.ok(
+            KicadComponentDetail.fromDomain(
+                accessPartDetailsUseCase.invokeEDAPartDetails(
+                    new InternalPartNumber(id))
+                ));
+    }
+
+}
+\end{minted}
+\caption{Ausschnitt des KiCad REST-Controllers}
+\label{lst:kicadREST}
+\end{listing}
+
+Listing \ref{lst:kicadREST} zeigt nur einen Ausschnitt aus dem REST-Controller
+aber die Mechanik ist für alle anderen Endpoints in etwa identisch. Genau wie
+für menschliche Akteure steuert auch dieser Controller UseCases an, die unser
+Domänenkern bereitstellt. Da wir bereits alles vorbereitet haben ist die 
+Methode, die den GET-Request abhandelt entsprechend kurz. Genau wie im 
+Trivialbeispiel müssen wir uns an dieser Stelle nicht darum kümmern, ob die
+\texttt{id} wirklich existiert. Sollte das nicht der Fall sein, wir unser
+Domänenkern eine \texttt{ComponentNotAvailableException} werfen. Dadurch wird
+unser REST-Controller mit einer 400-Bad-Request antworten, so wie wir das 
+übergreifend konfiguriert haben.
+
+Wenn wir KiCad entsprechend konfigurieren (Hostname, Port und API-Path), dann 
+können wir selbst mit unserer kleinen Implementierung wirklich Buteile laden.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{./chapter2/KiCAD-Selection.png}
+    \caption{Zugriff auf die Bauteilbibliothek via KiCad}
+    \label{fig:database}
+\end{figure}

@@ -1,0 +1,374 @@
+\section{Ein einfaches Vanilla-JS Frontend}
+Eigentlich soll Frontend-Entwicklung nicht der zentrale Fokus dieses Skripts
+sein. Hierzu gibt es unzählige bessere Tutorials und eine nicht abreissende
+Flut von immer neuen Ansätzen, Frameworks und Rädern die täglich neu erfunden
+werden. Für jeden, der Informatik seriös studiert hat, ist Javascript wohl nach
+wie vor eine Zumutung. So schlimm, dass man mit TypeScript versucht hat
+einen Überbau zu erzeugen, der dann zu Javascript \textit{transpiliert}.
+TypeScript hat Typen, aber die sind (aufgrund der Rückwärtskompatibilität)
+wohl mehr als Vorschlag als eine statische und strikte Typisierung zu 
+verstehen. Immerhin sind viele gute Ansätze aus TypeScript zu JavaScript
+zurück geflossen, so dass wir zumindest ordentliche Modulstrukturen und 
+ES6-Klassen erhalten haben.
+Hinzu kommen die stetig neuen Frameworks, die meist eines gemeinsam haben:
+Eine durch \textit{Node} verwaltete Dependency-Hölle. Es ist nicht ungewöhnlich
+dass diese Scripts bereits für Demoapplikationen hunderte Pakete nachladen
+von zig verschiedenen Entwicklern. Täglich gibt es überall Bugfixes, teils
+mit breaking changes - ein Fixieren aller Versionen scheint aufgrund der 
+Bedrohungslage durch Fehler keine gute Idee. Aber vielleicht bin ich zu wenig
+Frontendentwickler um dafür Verständnis aufzubringen. Ausserdem darf 
+jeder/jede machen, was er/sie will.
+
+Diese Kapitel ist auch weniger meine Vorstellung ``wie es sein soll''
+sondern eher wie man zu einem Frontend kommt ohne auf noch mehr 
+Technologie einzugehen. Vielleicht schreibe ich irgendwann auch mal
+ein Skript über saubere Frontendentwicklung - falls so etwas überhaupt
+möglich ist.
+
+Anstelle von grossen Frameworks nehmen
+wir daher einfach nichts und bauen trotzdem ein Frontend. Ohne 
+Compile-Schritt, ohne Packetierung, ohne Depencency-Hölle. Man kann dieses
+Kapitel als Exploration lesen, wie sich Webentwicklung ohne Frameworks nur 
+mit WebStandards anfühlt. Am Schluss muss man selbst entscheiden ob das 
+für das eigene Projekt ein gangbarer Weg ist. Wahrscheinlich eher nicht ...
+
+In der aktuellen Form ist das - im Gegensatz zu den überlegungen im Backend -
+\textbf{NICHT} production-ready und soll auch nicht so verstanden werden.
+Mehr ein Denkansatz zum eigenen Evaluieren eines geeigneten Frontends.
+
+Immerhin sind wir durch die Beschränkung auf Web-Standards in hohem Masse
+Browserunabhängig und können auch recht sicher sein, dass so ein Frontend
+auch in 10+ Jahren noch identisch funktioniert.
+
+\subsection{Projekt-Setup}
+Damit wir ein lauffähiges Frontend erhalten können, benötigen wir zuerst
+einen Webserver. Spring stellt uns diesen direkt zur Verfügung.
+Alle Dateien, die unter \texttt{\_root/src/main/resources/static}
+abgelegt wird, wird von Spring direkt per http zur Verfügung gestellt.
+Zumindest solange die Dependency \textit{spring-boot-starter-web}
+inkludiert ist. Das ist bei uns aufgrund der REST-Schnittstelle aber
+sowieso gegeben. Keinen externen Webserver zu verwenden hat hierbei
+noch den Vorteil, dass sowohl Back- als auch Frontend von der gleicher
+Quelle stammt. Anderenfalls müssten wir uns aktiv um \textit{CORS
+- Cross Origin Request Sharing} Gedanken machen. Für die lokale
+Entwicklung eine Hürde mehr. Ganz sicher ist die Antwort darauf nicht
+die CORS-Protection etwa abzuschalten, so wie man das immer wieder
+als Empfehlung liest!
+
+Es ginge tatsächlich gänzlich ohne Dependencies aber wer nicht tagelang
+mit CSS basteln will, der nimmt dann doch einfach Bootstrap, damit die
+Oberfläche zumindest einigermassen ansehnlich erscheint. Das ist jedoch
+nur ein einziges .css file. Das können wir problemlos statisch anbieten.
+Unseren Web-Folder strukturieren wir wie folgt:
+
+\dirtree{%
+.1 src/main/resources/static/.
+.2 3rd-party/.
+.3 bootstrap.css.
+.3 bootstrap.css.map.
+.3 LICENSE.
+.2 components/.
+.2 lib/.
+.3 NPElement.js.
+.3 NPRouter.js.
+.3 NPService.js.
+.2 services/.
+.2 app.js.
+.2 index.html.
+.2 LICENSE.
+}%
+
+Unsere \texttt{index.html} ist dabei recht spartanisch. Alles was wir hier
+wollen ist, dass boostrap.css geladen wird und wir unser app.js einbinden.
+
+
+\begin{listing}[H]
+\begin{minted}{html}
+<!DOCTYPE html>
+<html>
+    <head>
+        <link href="./3rd-party/bootstrap.css" rel="stylesheet">
+
+    </head>
+    <body>
+        <np-app></np-app>
+        <script type="module" src="./app.js"></script>
+    </body>
+</html>
+\end{minted}
+\caption{index.html}
+\label{lst:indexhtml}
+\end{listing}
+
+Ebenfalls recht übersichtlich ist unser \texttt{app.js} 
+(Listing \ref{lst:appjs}) aber es verlangt nach ein paar Erklärungen.
+Zuerst \texttt{NPElement} oder generell der \textit{NP-}Präfix. Mir ist
+nichts besseres eingefallen - ``Nano\&Pico'' soll das heissen. Es sollte
+ja möglichst kein sein. Egal, die drei Klassen unter \texttt{lib/} sollen
+einfach oft wiederverwendete Funktionen kapseln. \texttt{NPElement} erbt
+selbst von \texttt{HTMLElement} was wiederum zum WebStandard gehört.
+Eine der zentralen Funktionen ist safeHTML dass uns das \textit{Escapen} 
+der String-Literals ermöglicht. Daneben haben wir noch den \texttt{NPRouter}
+der einfache Routing-Funktionalitäten zur Navigation bereitstellt.
+Wie wir sehen, haben wir nur ganz wenige Routen. Der letzte Eintrag
+zeigt auch gleich, wie wir eine Seite mit einem übergebenen Parameter
+laden können. Was wir auch noch erklären müssen ist
+\texttt{\_getLocalElementNameByID(id)}. In NPElement ist so implementiert
+dass alle \texttt{IDs} automatisch mit einer UUID als Prefix versehen werden.
+Das ist nötig, da wir auf einen Shadow-DOM verzichten und damit sicherstellen
+müssen, dass wir eindeutig auf unsere gekapselten Elemente zugreifen können.
+Die genannte Funktion stellt bei der Abfrage dann ebenfalls die korrekte
+UUID voran.  
+
+\begin{listing}[H]
+\begin{minted}{js}
+import { NPElement } from './lib/NPElement.js'
+import { HomePage } from './components/pages/HomePage.js'
+import { ComponentsPage } from './components/pages/ComponentsPage.js'
+import { OrderableItemsPage } from './components/pages/OrderableItemsPage.js'
+
+
+import { NavBar } from './components/navigation/NavBar.js'
+import { NPRouter } from './lib/NPRouter.js';
+
+
+export class App extends NPElement {
+
+    get template() {
+        return this.safeHTML`
+            <nav-bar></nav-bar>
+            <div id="outlet"></div> 
+        `;
+    }
+
+    constructor(parameters) {
+        super();
+        this.render();
+
+        const router = new NPRouter(this._getLocalElementNameByID('outlet'));
+        router.define([
+                { path: '/', component: () => new HomePage() },
+                { path: '/home', component: () => new HomePage() },
+                { path: '/components', component: () => new ComponentsPage() },                     
+                { path: '/components/:id/orderableItems', 
+                    component: (id) => new OrderableItemsPage(id) },           
+            ]);
+
+        router.handleInitialLoad();
+        router.enableLinkInterception();
+
+        window.router = router;
+    }
+
+    render() {
+        this.innerHTML = this.template;
+    }
+
+}
+
+if (!customElements.get('np-app')) {
+    customElements.define('np-app', App);
+}
+\end{minted}
+\caption{app.js}
+\label{lst:appjs}
+\end{listing}
+
+\texttt{NPRouter.js} und \texttt{NPElement.js} sind mit 130 und 53 Zeilen Code
+inkl. Kommentaren übersichtlich klein. Dazu kommen noch 50 Zeilen in 
+\texttt{NPService.js}. Das heisst unser Framework weist weniger als 250 Zeilen
+Code auf und nimmt uns gleichwohl schon eine Menge Arbeit ab.
+
+\subsection{Anbindung an das Backend}
+
+\texttt{NPService} ist übrigens nur ein Wrapper rund um die Fetch-API so dass
+wir bequem auf unser REST-Interface zugreifen können. Listing 
+{\ref{lst:servicejs}} zeigt, wie wir das für unser REST-Interface anwenden
+können:
+
+\begin{listing}[H]
+\begin{minted}{js}
+import {NPService} from '../lib/NPService.js'
+
+export class ComponentService extends NPService {
+static #instance = null;
+
+  static getInstance() {
+    if (!ComponentService.#instance) {
+      ComponentService.#instance = new ComponentService();
+    }
+    return ComponentService.#instance;
+  }
+
+  constructor() {
+    super('/api/components');
+  }
+
+  getAllComponents() {
+    return this.request('');
+  }
+
+  getComponent(internalPartNumber) {
+    return this.request('/' + internalPartNumber);
+  }
+
+  addOrderableItem(internalPartNumber, orderableItem) {
+    return this.post('/' + internalPartNumber + "/orderableItems", orderableItem);
+  }
+  
+}
+\end{minted}
+\caption{ComponentService.js}
+\label{lst:servicejs}
+\end{listing}
+
+Somit ist es ein simpler Wrapper damit wir unsere Objekte im Frontend
+abfragen können ohne, dass sich Darstellungs- und Infrastrukturcode
+mischen würde.
+
+\subsection{Entwurf der einzelnen Pages}
+
+Exemplarisch schauen wir uns die Liste aller Komponenten an.
+
+\begin{listing}[H]
+\begin{minted}{js}
+import { NPElement } from '../../lib/NPElement.js';
+import { ComponentService } from '../../services/ComponentService.js';
+
+export class ComponentsPage extends NPElement {
+  constructor() {
+    super();
+    this.componentService = ComponentService.getInstance();
+    this.render();
+    this.loadComponents();
+  }
+
+  get template() {
+    return this.safeHTML`
+      <h1>Available Components</h1>
+      <div id="componentList">Loading...</div>
+    `;
+  }
+
+  render() {
+    this.innerHTML = this.template;
+  }
+
+  async loadComponents() {
+    try {
+      const components = await this.componentService.getAllComponents();
+
+      if (!Array.isArray(components)) {
+        throw new Error("Books response is not an array");
+      }
+
+      this._renderComponents(components);
+    } catch (error) {
+      this._displayError(`Failed to load components: ${error.message}`);
+      console.error('Components loading error:', error);
+    }
+  }
+  ...
+}
+\end{minted}
+\caption{ComponentsPage.js - Teil 1}
+\label{lst:componentsPage1}
+\end{listing}
+
+Listing \ref{lst:componentsPage1} zeigt uns einen Teil der 
+ComponentsPage-Komponents. Im Konstruktor besorgen wir uns
+eine Referenz auf den Components-Service und rendern erst
+mal einen Placeholder. Das eigentliche Laden der Komponenten erfolgt
+Asynchron. Sobald wir alle Komponenten geladen haben, rendern wir
+erneut und ersetzen unseren Platzhalter. Wie gesagt kein Shadow-DOM
+- wir ersetzen einfach das innerHTML von uns selbst. Da wir von
+HTMLElement erben, passt das.
+
+\begin{listing}[H]
+\begin{minted}{js}
+import { NPElement } from '../../lib/NPElement.js';
+import { ComponentService } from '../../services/ComponentService.js';
+
+export class ComponentsPage extends NPElement {
+    ...
+    
+    _renderComponents(components) {
+        const container = this._getLocalElementByID('componentList');
+
+        const lines = components.map(
+            component => this._createComponentEntry(component)).join('');
+        container.innerHTML = this.unsafeHTML`
+        <table class="table">
+            <thead>
+            <tr>
+                <th scope="col">Part</th>
+                <th scope="col">Category</th>
+                <th scope="col">Value</th>
+                <th scope="col">Footprint</th>
+                <th scope="col">Footprint</th>
+            </tr>
+            </thead>
+            <tbody>
+            ${lines}
+            <tbody>
+        </table>`;
+  }
+  _createComponentEntry(component) {
+    return this.safeHTML`
+      <tr>
+        <th scope="row">
+            <a href="/components/${component.ipn}/orderableItems" data-route>
+                ${component.ipn}
+            </a></th>
+        <td>${component.category}</td>
+        <td>${component.value}</td>
+        <td>${component.symbol}</td>        
+        <td>${component.footprint}</td>        
+      </tr>
+    `;
+  }
+
+  _displayError(message) {
+    const container = this._getLocalElementByID('componentList');
+    container.innerHTML = this.safeHTML`<p class="text-danger">${message}</p>`;
+  }
+}
+\end{minted}
+\caption{ComponentsPage.js - Teil 2}
+\label{lst:componentsPage2}
+\end{listing}
+
+Im zweiten Teil der Klasse in Listing \ref{lst:componentsPage2} geht es nur
+noch um das Rendering der Komponenten. Zu beachten ist die Verwendung von 
+\texttt{unsafeHTML} und \texttt{safeHTML}. Da \texttt{safeHTML} alle Tags
+in den Daten escapen würde, kann man das nicht verschachtelt aufrufen. Um so
+wichtiger ist es hier strikt darauf zu achten, dass niemals Daten vom
+Backend in einem unsafe-Block gerendert werden. Anderenfalls würde man hier
+Tür und Tor für XSS oder ähnliche Angriffe öffnen. Damit man auch erkunden
+kann, wie man etwas zum Server schickt, ist in der Klasse OrderableItemsPage
+als Demo vorgesehen, dass man weitere Bestelloptionen zu einer Komponente
+hinzufügt. Zum Schluss noch ein Screenshot von unserem Nutzerinterface:
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{./screenshots/Components.png}
+    \caption{Frontend - Listing aller Komponenten}
+    \label{fig:components}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{./screenshots/OrderableItems.png}
+    \caption{Frontend - Bearbeiten der Lieferoptionen einer Komponente}
+    \label{fig:orderableItems}
+\end{figure}
+
+Damit ist unser Rundgang durch die Frontend-Welt auch schon beendet.
+ Wer jetzt der Meinung ist,
+dass das mit Framewoks wie Anguar, Vue oder React alles viel einfacher
+ginge der mag sicher Recht haben - für unseren Kurs bleiben wir dennoch
+Frameworkless, da wir nicht noch mehr Technologie in den Stack laden
+wollten. Ausser XSS prevention passiert bei uns im Frontend nicht viel
+Es ist für uns eher ein einfacher Weg Abläufe im Backend auszulösen.
+

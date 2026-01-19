@@ -1,0 +1,768 @@
+Schön, dass Du dieses Skript vor dir liegen hast. 
+Entweder als Vorkurs für den 
+\textit{CAS Secure Software Design and Development} oder einfach so, 
+weil Du Dich für sauber gebaute Software interessierst. 
+
+Sauberer Code wird immer wichtiger, da unsere IT-Landschaften immer
+komplexer werden. Code, den wir verstehen, wird die Grundlage allen
+Vertrauens in die IT bleiben - auch wenn einem gerade jeder und jede
+einreden möchte, dass Softwareentwicklung zukünftig über KI stattfinden
+wird und zwar in einer Form, der man nur noch seine Wünsche eingeben muss
+und dann innert Minuten die fertige Software bekommt. 
+So allgemein, wie es gerne verkauft wird kann das jedoch nicht funktionieren,
+denn mindestens muss man seine Anforderungen vollständig formulieren können,
+oder der Generator trifft willkürliche Annahmen, um die Lücken zu füllen.
+Dieses Argument ist selbst bei einem perfekt funktionierenden Generator
+nicht zu entkräften - Halluzinationen der gängigen LLMs machen das alles
+zuweilen noch schlimmer. In der Informatik gibt es (genau wie in jeder
+anderen Ingenieursdisziplin) viele richtige und gute Wege ein Problem
+zu lösen und gesetzte Anforderungen zu erfüllen. Schon darum ist es
+unmöglich aus einer Problemdefinition \textbf{die} Lösung abzuleiten
+- schon gar nicht im formalen Sinn. Softwareentwicklung wird daher
+immer ein kreativer Prozess bleiben. Anderenfalls müssen wir starke
+Einschränkungen des Lösungsraums in Kauf nehmen, wie dies die Low-
+und No-Code-Plattformen realisieren oder aber wir akzeptieren willkürliche
+und zufällige Lösungen.
+
+Dieses Skript ist bewusst KI-agnostisch gehalten. Es ist allgemein unwichtig,
+mit welchen Werkzeugen jemand arbeitet, um ein Ergebnis zu erzielen. Wenn
+man entsprechende Prompts formuliert, erhält man bestimmt auch Lösungen
+im Sinne dieses Skriptes. Aber genau das ist der Punkt - wenn die Modelle
+gut funktionieren ist deren Outputqualität auch immer abhängig von der
+Qualität des Inputs. Genau darum ist es umso wichtiger dass man den
+Code wirklich versteht. Sonst kann man gar nichts mehr überprüfen.
+
+Wie dem auch sein mag - wir wollen uns ganz manuell mit dem Erstellen
+von sauberem Code beschäftigen und dabei ganz besonderen Wert auf 
+das Erzeugen eines gutes Modell von unserer Domäne legen. 
+Mit oder ohne KI - 
+wir müssen die Domäne verstehen, um überhaupt irgendetwas nützliches
+bereitstellen zu können.
+
+
+Wir werden mit Hilfe von zwei Projekten Schritt für Schritt eine Business-App
+bauen, um den Entwicklungsstack besser kennenzulernen. Ganz bewusst adressieren
+wir in diesem Skript vor allem das Thema Korrektheit und Testbarkeit
+von Code. Alleine dadurch werden wir ganz viele Security-Themen auch
+gleich mit erledigen. Oft sind sie eine Folge von schlampiger Programmierung
+und nicht etwa auf das Fehlen von zusätzlicher Technik und Komplexität
+zurückzuführen. Input-Validierung werden wir z.B. kaum extra benötigen,
+da unser Domänenmodell derart strikt sein wird, dass wir überhaupt
+keine Objekte instanziieren, die nicht valid sein könnten - ganz 
+egal woher die Daten kommen. Oder SQL-Injections - das kann und darf es bei
+sauberer Entwicklung nicht geben. Klar, es gibt noch x weitere Themen
+wie Authentication, Authorization, Domain-Model-ACL etc., aber das schauen
+wir im Kurs an.
+
+Ganz viel Wert werden wir auf das Thema \textit{Separation of Concerns}
+legen. Wir lassen nicht zu, dass sich Zuständigkeiten in der Codebasis
+ausbreiten. REST-spezifischer Code gehört ausschliesslich in den Boundary
+Code, OR-Mapping machen wir nur im Persistenzbereich. Unsere
+Businesslogik und das Domain-Model sollen und dürfen nichts davon wissen.
+Anderenfalls gibt es überall kreuz und quer Abhängigkeiten. Das wird eine
+Hölle zum Testen und verhindert jegliche Portierbarkeit, falls man
+z.B. die zugrundeliegende Datenbanktechnologie wechseln möchte oder
+irgendwann mal von Spring Boot wegmigrieren will.
+
+Ebenso werden wir uns soweit irgend möglich von strikten, objektorientierten 
+Entwurfsmustern verabschieden. Es muss nicht alles als vererbte Struktur 
+abgebildet werden.
+Auch von der Idee, das alles immer und um jeden Preis ein Objekt 
+im klassischen Sinne ist und aus Daten und Verhalten
+besteht, ist mittlerweile als überholt zu betrachten. Es gibt schon einen Grund, 
+warum 
+\textit{Value Objects} oder \textit{Data Transfer Objects} existieren oder 
+warum man auf Strukturen ausweicht, die \textit{immutable} sind. Aber wir 
+machen das nicht pedantisch sondern dort wo es am meisten Sinn stiftet.
+
+Bevor wir aber zu technisch werden, noch ein paar allgemeine Bemerkungen,
+vor allem warum wir auch im Jahr 2026 in einem neuen Kurs noch Java
+einsetzen.
+
+\section{Java ist längst aus der Mode gekommen!}
+Mode - manche würden das auch Hype nennen - ist offenbar ein wichtiges
+Entscheidungskriterium für die Auswahl von Technologie. Leider oftmals
+mit teuren Konsequenzen. Man setzt lieber auf Neues und Unerprobtes das
+dann viele 'Kinderkrankheiten' hat, viele Probleme, die früher gelöst waren
+doch nicht adressiert, das ganze über Jahre erarbeitete Praxiswissen obsolet 
+macht und sich letztlich in seinen Konzepten irgendwann selbst wiederholt.
+\\
+Ein schönes Beispiel sind Konzepte zur Systemintegration. Kennt ihr noch CORBA? 
+Das war die Integrationslösung der 90er-Jahre. Man hatte 
+eine abstrakte Sprache, um ein Interface zu definieren - meist im Sinne von 
+Remote Procedure Calls. Daraus wurden dann sogenannte Stubs für die gewünschte
+Programmiersprache generiert. Eine solide Idee: Contract first - mit 
+Unterstützung für Interprozesskommunikation über Systemgrenzen hinweg.
+In den 2000ern kam dann XML auf. Schnell wollte man die Binärübertragungen von 
+CORBA loswerden und erfand zunächst XML-RPC, später dann SOAP. Das war im 
+Grunde das Gleiche in Grün - nur viel komplizierter (okay, fairerweise konnte 
+es auch mehr, etwa durch flexiblere Transportprotokolle). Die zunehmende 
+Komplexität war jedoch oft hinderlich, und HTTP war im Web längst der 
+Standard für Server-/Browser-Kommunikation.
+Etwa zehn Jahre später war dann REST das Mass der Dinge. REST basiert direkt 
+auf HTTP und hat eine andere Semantik als SOAP - die Operationen werden 
+über HTTP-Methoden wie GET, PUT, POST, DELETE oder OPTIONS abgebildet. Man 
+spricht von Ressourcen statt Prozeduren 
+und verzichtet auf eine formale Beschreibung der Interfaces. Das bringt zwar 
+theoretisch Flexibilität, aber in der Praxis ist man oft doch auf ganz bestimmte 
+API-Versionen angewiesen - schliesslich müssen die Daten genau im
+erwarteten Format ausgetauscht werden. Später hat man diese Beschreibbarkeit 
+mit Swagger/OpenAPI wieder hinzugefügt.
+
+Google hat dann gRPC ins Leben gerufen. Das unterstützt wieder Binärübertragung, 
+man definiert wieder formal das Interface - und kompiliert daraus erneut Stubs 
+in der jeweiligen Zielsprache. Eigentlich ist man damit 20 Jahre später wieder 
+bei einem sehr ähnlichen Konzept wie CORBA gelandet. Man stelle sich vor, wie 
+viel Geld und Ressourcen diese Odyssee gekostet hat. Und der Zoo an Protokollen 
+bleibt bestehen - denn viele Systeme laufen deutlich länger als ursprünglich 
+angenommen. Rückwärtskompatibilität wird erwartet.
+Spaß am Rande: Modernste 64-Bit x86-Prozessoren starten noch heute im Real Mode 
+- sie emulieren beim Booten den 8086 aus dem Jahr 1978 im 16-Bit Modus!
+\\
+Aber zurück zu den Sprachen. Das Alter einer Sprache hat meist nichts damit zu
+tun, ob die Sprache 'veraltet' ist. C ist das beste Beispiel dafür. 
+Nach über 50 Jahren ist es noch immer weit verbreitet, mindestens im Bereich der
+Betriebssysteme sowie bei Embedded und IoT-Projekten aber auch grosse Teile der 
+Userland-Werkzeuge in Linux sind in C geschrieben. Pascal hingegen ist in 
+etwa gleich alt - wird aber kaum noch verwendet (Delphi hält das noch etwas am 
+Leben). Somit gibt es kaum noch eine Community rund um die Sprache, und somit 
+wird auch kaum Infrastruktur (im Sinne von Frameworks) um die Sprache herum 
+gebaut. Relevante Applikationen in Pascal zu schreiben, wird dadurch gleichwohl
+mühsamer im Vergleich zu anderen Sprachen. Pascal ist somit leider wirklich
+als veraltet zu betrachten.
+
+Für Java scheint das nicht zu stimmen. Nach aktuellen Statistiken ist es direkt 
+nach Python, auf Platz zwei der meistgenutzten Programmiersprachen 
+\cite{statista_2025}. Nicht nur beherrscht Java 'moderne' Konstrukte wie z.B. 
+funktionale Programmierung, sondern kann auch auf eine erfolgreiche Vergangenheit
+im Enterprise-Umfeld (vor allem Versicherungen und Banken) zurückblicken.
+
+Persönlich finde ich Java lesbarer und schöner als Python aber das ist
+Geschmackssache und auch eine Frage der Erfahrungen. Die Sprache ist ja meist
+nicht verantwortlich dafür, ob Code gut oder schlecht ist. Dennoch wird man
+nicht müde auf Java herumzuhacken weil eine gerade gehypte Sprache angeblich 
+alles besser kann. Und genau hier ist das Problem - keine Sprache kann alles
+besser, da verschiedene Programmiersprachen parallel existieren um ganz
+verschiedene Arten von Problemen zu lösen. Seit Turing wissen wir, dass wir
+jede Sprache in jede andere umwandeln können. Theoretischer Natur kann dieses 
+``besser'' also schon mal gar nicht sein. Es ist eben Mode. Dass man im 
+Data-Science-Umfeld besonders auf Python setzt liegt nicht inhärent an der
+Syntax der Sprache sondern vielmehr an der Verfügbarkeit von Libraries und
+Frameworks sowie an einer lebendigen Community. 
+
+Gesamtheitlich betrachtet bin ich nach wie vor der Meinung, dass Java eine
+geeignete und noch immer zeitgemässe Sprache für die Entwicklung von
+Businessapplikationen ist. Man darf aber gerne anderer Meinung sein solange
+man zeigen kann, dass man in einer alternative Umgebung ebenfalls guten
+Code erzeugen kann. Aber was ist eigentlich guter Code?
+
+\section{Guter und schlechter Code}
+Für die Bewertung von Programmcode gibt es unzählige Metriken. Qualität
+von Software zu quantifizieren versucht man bereits seit den 1980er Jahren
+mit mässigem Erfolg. Lines-of-Code, Zyklomatische Komplexität, 
+Wartbarkeits-Index u.s.w. Allesamt sind dies aber generische und meist sprach-
+unabhängige Masse. Aber woher kommen die Vorstellungen, dass C-Code weniger 
+sicher ist als z.B. Code in Python? In JavaScript würde auch niemand ein
+Betriebssystem schreiben wollen. Nur warum?
+
+Das liegt daran, dass bestimmte Kategorien von Fehlern in manchen Sprachen
+nicht möglich sind. C ist typisiert, JavaScript hingegen nicht. Fehler durch 
+Zuweisungen von inkompatiblen Typen fallen bei C bereits dem Compiler auf, 
+bei JavaScript erst bei der Ausführung. Python hat im Gegensatz zu C echten
+Speicherschutz. Ein Buffer-Overflow mit fatalen Folgen (Crash bis hin zu 
+Remote-Code-Execution) ist in einer Python-Umgebung erst mal nicht möglich 
+- zumindest nicht durch die eigenen Programmierfehler.
+
+Der Rest ist Sache des Programmierers und der Frameworks. Es gibt Umgebungen
+(z.B. PHP) die geradezu animieren, hässlichen Code zu produzieren, der alle 
+Abstraktionsebenen und Verantwortungsbereiche vermischt. Saubere 
+Schichtentrennung und modulares Design wird darin dann schwierig. Und dennoch
+gibt es viele gute Gegenbeispiele.
+
+Java hat hingegen den Nimbus Code-Qualität durch überbordende Komplexität 
+einzubüssen.``Enterprise''-Patterns werden teils verspottet, unzählige Klassen 
+zu produzieren um einfachste Probleme zu lösen. Und dennoch kann man kompakten
+Code schreiben.
+
+Fazit: Schlechter Code ist primär den Programmierenden geschuldet, sofern
+man sich der Limitierungen seiner Umgebung bewusst wird. Aber auch der 
+Technologiewahl. Manche Umgebungen (Node.js als negativbeispiel) erzeugen z.B.
+regelmässig riesige Abhängigkeitsbäume so dass die SBOM gross und schwer zu 
+warten wird.
+Hier liegt die Gefahr in Sicherheitsmängeln der nahezu unüberschaubaren Anzahl
+von Drittsoftware, die in das eigene Projekt eingebunden wird (das ist in
+Python/pip-Umgebungen übrigens kaum besser).
+
+In diesem Script möchte ich mit Java und der Spring-Boot-Umgebung zeigen, wie wir
+(trotz eventuell bestehender Vorbehalte) sauberen Code erzeugen, der vor allem 
+fachliche Aspekte beschreibt, sinnvolle
+Abstraktions- und Verantwortungsbereiche trennt und so verständlich wie möglich
+ist. Dadurch werden wir in der Lage sein, sichere und wartbare Systeme zu 
+erstellen.
+
+\section{Warum noch ein Script?}
+Bücher zu Java gibt es ja genug, aber mir ist keines bekannt, dass den Inhalt
+genau auf unsere Bedürfnisse des Security-Kurses angepasst hätte, sodass
+entweder wichtige Themen fehlen würden oder noch viel 'Ballast' zusätzlich
+vermittelt wird, der uns in diesem Kontext gar nichts bringt. Mit der 
+Entscheidung ein neues Skript zu erstellen kann ich einen Mittelweg einschlagen.
+Zudem soll dieses Skript auch nur als zusätzliches Nachschlagewerk dienen. Zu
+allen Themen gibt es dann auch noch Video-Lektionen und Übungen um das Wissen 
+Schritt für Schritt zu erarbeiten.
+
+Und natürlich, weil ich Freude daran hatte, auch endlich mal ein ``Buch'' zu 
+schreiben.
+Freude daran, die Dinge genau so darzustellen, wie ich mir gewünscht hätte, dass
+man sie mir erklärt hätte. Anhand von Beispielen und immer mit dem Bestreben,
+den Sinn dahinter zu erklären. Es ist nicht wichtig dass man Dinge so macht, 
+wie sie angeblich gemacht werden - sondern es ist viel wichtiger zu verstehen, 
+warum man sie so (oder eben anders) macht.
+
+\section{Warum eigentlich Springboot?}
+Tatsächlich haben wir uns lange überlegt, welchen Technologiestack wir
+für unseren Weiterbildungskurs einsetzen wollen. Letztlich fiel die Wahl
+auf Spring Boot. In Spring Boot sind 25 Jahre Java-Enterprise-Erfahrungen
+eingeflossen, immer aus den Fehlern lernend und immer bestrebt mit weniger
+Boilerplate-Code auszukommen. Am besten rein fachlich arbeiten. Zudem steht mit
+Spring Secuity ein leistungsfähiges und ebenfalls langzeiterprobtes 
+Security-Framework zur Verfügung, das praktisch alle Belange im Bereich
+Authorization und Authentication abdecken kann. Alle Teile von Spring Boot 
+werden zentral verwaltet und sind aus einem Guss. Es besteht zwar aus vielen
+Komponenten, wird aber nicht zur Dependency-Hölle, selbst bei anspruchsvollen
+Designs. Und - man lernt ohnehin immer nur Konzepte. Sprachen kommen und gehen
+aber die tiefer liegenden Überlegungen und Problemlösungsstrategien bleiben
+erhalten und sind auf beliebige, andere Umgebungen anwendbar. Apropos andere
+Umgebungen: Java ist portierbar und steht auf allen grossen Plattformen zur
+Verfügung. Mac, Windows, Linux und das ganze auch für ARM64 oder X86. Und es 
+benötigt kaum Infrastruktur. Ein simples Java-JDK genügt. Keine Gigabyte 
+grossen und schwerfälligen Entwicklungsumgebungen. Im Prinzip genügt ein 
+guter Editor.
+
+\section{Die ersten Gehversuche}
+So, nun geht es aber los mit Docker-DevContainers, und IntelliJ, einer 
+PostgreSQL-DB, einem Applikationsserver ... nein! Nichts davon benötigen wir.
+Wir starten ganz einfach mit lokalem Development und werden sehen, dass uns
+das überhaupt nicht im Wege steht. Halten wir uns an die Standards, werden
+wir schnell bemerken, dass wir auch keine generative KI benötigen, um zum 
+10x-Developer zu werden. Wir sind es schon, da wir den Aufwand minimieren
+und bestrebt sind qualitativ hochwertigen Code zu erzeugen. Boilerplate-Code
+vermeiden wir soweit das irgend geht. Also los!
+
+\subsection{JDK installieren}
+Alles, was es zum Start benötigt ist das Java-Development-Kit oder JDK. Wir
+raten aus lizenztechnischen Gründen immer zu einem quelloffenen JDK. Unter
+Linux entweder OpenJDK oder (und das gilt auch für die anderen Plattformen)
+das JDK von Adoptium.net. Unter Windows muss man ggf. noch selbst dafür sorgen,
+dass Java im Systempfad vorhanden ist. Wenn man auf der Command-Line Java
+aufruft und in etwa das gezeigte Resultat bekommt, hat man alles richtig
+gemacht:
+\begin{terminalbox}
+\begin{VerbatimBreak}
+% java -version
+openjdk version "21.0.7" 2025-04-15 LTS
+OpenJDK Runtime Environment Temurin-21.0.7+6 (build 21.0.7+6-LTS)
+OpenJDK 64-Bit Server VM Temurin-21.0.7+6 (build 21.0.7+6-LTS, mixed mode, sharing)
+\end{VerbatimBreak}
+\end{terminalbox}
+
+Zusätzlich sollte als Umgebungsvariable noch JAVA\_HOME gesetzt sein und auf das
+installierte JDK zeigen. Die exakten Versionen sind dabei nicht so wichtig.
+So lange wir mind. auf Java 21 arbeiten ist das gut.
+
+\subsection{Git installieren}
+Falls nicht längst geschehen, müssen wir git installieren. Es gibt keine 
+Ausrede ohne
+Versionskontrollsystem zu arbeiten. Es muss auch nicht auf einem Server liegen
+- schon gar nicht zum experimentieren. Git ist dafür ausgelegt, komplett lokal
+zu laufen. Eigentlich kann es auch gar nichts anderes. Clone/Push/Pull sind 
+spezifische
+Befehle, den lokalen Stand mit einem Server zu synchronisieren. Commits und 
+Checkouts passieren ohnehin immer erst mal nur lokal. 
+
+Probieren wir das doch gleich mal in einem Verzeichnis eurer Wahl aus:
+\begin{terminalbox}
+\begin{VerbatimBreak}
+% mkdir playground
+% cd playground
+% git init .
+\end{VerbatimBreak}
+\end{terminalbox}
+
+\section{Minimales Maven Projektsetup}
+
+Man kann sich das Leben einfach machen und https://start.spring.io nutzen,
+um sich ein Minimalprojekt ``zusammenzuklicken'' und anschliessend
+als .zip herunterladen. Oder man nutzt seine Entwicklungsumgebung um ein 
+'leeres' Maven-Projekt zu erstellen.
+Für unser Setup machen wir aber zum Üben einmal alles
+von Hand um wirklich zu verstehen, was hinter den ganzen Dateien und
+Verzeichnissen steckt. Generell ist es ohnehin keine gute Praktik ZIP-Files
+irgendwo herunterzuladen und darin enthaltene Binaries auch noch auszuführen.
+Auch wir laden im Folgendem fertige Shell-Scripts aus dem Apache GitHub-Repo
+herunter. Es wird bei solchen Schritten dringend empfohlen die Scripte
+zumindest grob in Augenschein zu nehmen bevor man diese ausführt. Immerhin ist
+das Programmcode fremder Personen.
+Aber der Reihe nach. Zuerst braucht unser Projekt eine geeignete
+Verzeichnisstruktur.
+
+\subsection{Verzeichnisstruktur anlegen}
+Maven-Projekte folgen einer einheitlichen Verzeichnis-Struktur, die wir
+leicht manuell erzeugen können:
+\begin{terminalbox}
+    \begin{verbatim}
+$ mkdir -p src/main/{java,resources}
+$ mkdir -p src/test/{java,resources}
+$ mkdir -p src/main/java/ch/zhaw/ssdd/demo
+$ mkdir -p src/test/java/ch/zhaw/ssdd/demoTest
+$ touch pom.xml
+    \end{verbatim}
+\end{terminalbox}
+Es ist von den Namen her recht klar, was später wo abgelegt wird. Compilierte
+Artefakte liegen später in ./target, das bei der ersten Ausführung angelegt 
+wird. Die Substruktur "ch/zhaw/ssdd/demo" repräsentiert das Java-Package 
+ch.zhaw.ssdd.demo in welchem wir später unseren Code ablegen wollen.
+pom.xml ist die zentrale Konfigurationsdatei von Maven, das wir benötigen, um
+unsere Software automatisch zu übersetzen, packetieren und zu testen. Um das
+zu nutzen, müssen wir Maven istallieren.
+
+\subsection{Maven-Wrapper installieren}
+Natürlich könnte man Maven auch systemweit installieren, aber in letzter Zeit
+hat es sich bewährt, Maven als Teil des Repositories auszuliefern. Nun wäre
+es unangebracht, Binärdateien (jar-Files) im Repository zu verwalten, die sonst
+nichts mit der Codebasis zu tun hätten. Daher behilft man sich mit 
+Wrapper-Skripten, welche die Maven-Funktionalität zur Verfügung stellen, 
+indem sie das Maven-Binary zur Laufzeit herunterladen und ausführen. Somit 
+ist keine lokale Maven-Installation mehr notwendig.
+Mit den folgenden Befehlen laden wir die Skripte für Linux/OSX und Windows
+herunter und erstellen noch ein notwendiges Konfigurationsfile, damit auch
+die richtige Maven-Version Verwendung findet. Da wir das Skript direkt von
+den Maven-Wrapper-Sources nehmen, müssen wir noch selbst die Versionsnummer
+ersetzen. Dieser Schritt ist notwendig, da wir nicht daran interessiert sind
+den Maven-Wrapper komplett zu als Binärpaket zu bauen, sondern lediglich die 
+Skripte benötigen.
+
+\begin{terminalbox}
+    \begin{VerbatimBreak}
+\$ curl -o mvnw https://raw.githubusercontent.com/apache/maven-wrapper/refs/tags/maven-wrapper-3.3.4/maven-wrapper-distribution/src/resources/only-mvnw
+\$ curl -o mvnw.cmd https://raw.githubusercontent.com/apache/maven-wrapper/refs/tags/maven-wrapper-3.3.4/maven-wrapper-distribution/src/resources/only-mvnw.cmd
+\$ sed -i "s/@@project.version@@/3.3.2/g" mvnw
+\$ sed -i "s/@@project.version@@/3.3.2/g" mvnw.cmd
+\$ chmod u+x ./mvnw
+\$ mkdir -p .mvn/wrapper
+\$ cat > .mvn/wrapper/maven-wrapper.properties << EOF
+wrapperVersion=3.3.2
+distributionType=only-script
+distributionUrl=https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip
+EOF
+\end{VerbatimBreak}
+\end{terminalbox}
+
+Note: Mac-Nutzer nehmen 'gsed' anstelle von 'sed', da die sed-Variante von 
+OSX/BSD das Flag -i nicht kennt und somit keine Ersetzungen 
+in der Datei vornehmen kann.
+
+\begin{rulebox}[label=rule:checkScripts]{Es werden niemals Skripte heruntergeladen
+    und unüberprüft ausgeführt!}
+Security betrifft auch unseren Buildprozess. Sich Malware über heruntergeladene
+Skripte und Binaries einzufangen sollte wirklich vermeidbar sein.
+\end{rulebox}
+
+Eigentlich wären wir an dieser Stelle fertig, aber es ist 
+generell eine gute Praktik bei solchen automatischen Downloads 
+Checksummen zu verifizieren. Sicherheit fängt in der Toolchain an. Zumindest
+einmal sollte man sich die Mühe machen, den Hash auf der Downloadseite zu 
+finden und manuell zu überprüfen. Noch besser wäre es natürlich auch 
+die Signatur zu prüfen. Das müssten wir aber von Hand machen. Wir benötigen
+lediglich eine Installation von 'gpg'. Neben dem Binary und dem Hash benötigen
+wir auch die Signatur-Datei.
+
+\begin{terminalbox}
+\begin{VerbatimBreak}
+\$ curl -o apache-maven-3.9.11-bin.zip https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip
+\$ curl -o apache-maven-3.9.11-bin.zip.asc https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip.asc
+\$ curl -o apache-maven-3.9.11-bin.zip.sha512 https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip.sha512
+\$ gpg --verify apache-maven-3.9.11-bin.zip.asc apache-maven-3.9.11-bin.zip
+gpg: Signature made Sat Jul 12 20:32:55 2025 CEST
+gpg:                using RSA key 84789D24DF77A32433CE1F079EB80E92EB2135B1
+gpg:                issuer "sjaranowski@apache.org"
+gpg: Can't check signature: No public key
+\end{VerbatimBreak}
+\end{terminalbox}
+
+GPG bietet keine PKI an, wie wir sie vom Internet her kennen. 
+Insofern kennt unser System den
+Public Key des Entwicklers noch nicht. Bevor wir den Key importieren, tun wir 
+uns gut daran, diesen zuerst zu verifizieren. Im einfachsten Fall stellt uns Apache
+ein KEYS file zur Verfügung, dass den Fingerprint beinhaltet. In unserem Fall
+wäre dies über https://downloads.apache.org/maven/KEYS zu beziehen. Hat man keine 
+andere Quelle, kann man einfach mal
+mit einer Suchmaschine danach suchen und Belege sammeln, dass dieser Key auch
+wirklich zu der angegebenen Mailadresse gehört und diese auch mit einem
+Entwickleraccount bei apache verknüpft ist. 
+Man sieht auch hier wieder wie schwierig es in der Praxis ist, eine
+Trustverbindung herzustellen.
+
+\begin{terminalbox}
+\begin{VerbatimBreak}
+\$ gpg --keyserver keys.ubuntu.com --recv-key 84789D24DF77A32433CE1F079EB80E92EB2135B1
+\$ gpg --verify apache-maven-3.9.11-bin.zip.asc apache-maven-3.9.11-bin.zip
+gpg: Signature made Sat Jul 12 20:32:55 2025 CEST
+gpg:                using RSA key 84789D24DF77A32433CE1F079EB80E92EB2135B1
+gpg:                issuer "sjaranowski@apache.org"
+gpg: Good signature from "Slawomir Jaranowski <sjaranowski@apache.org>" [unknown]
+gpg:                 aka "Slawomir Jaranowski <s.jaranowski@gmail.com>" [unknown]
+gpg: WARNING: The key's User ID is not certified with a trusted signature!
+gpg:          There is no indication that the signature belongs to the owner.
+Primary key fingerprint: 8478 9D24 DF77 A324 33CE  1F07 9EB8 0E92 EB21 35B1
+\end{VerbatimBreak}
+\end{terminalbox}
+
+Die Warnung war zu erwarten, da wir keine weiteren Elemente der Signaturkette 
+eingefügt haben. Für unsere Zwecke genügt die manuelle Verifikation an dieser 
+Stelle. Wir überprüfen noch kurz den Hashwert und erzeugen noch selbst einen
+SHA256-Hashwert, der uns nicht mit ausgeliefert wird:
+
+\begin{terminalbox}
+\begin{VerbatimBreak}
+\$ shasum -a 512 apache-maven-3.9.11-bin.zip
+03e2d65d4483a3396980629f260e25cac0d8b6f7f2791e4dc20bc83f9514db8d0f05b0479e699a5f34679250c49c8e52e961262ded468a20de0be254d8207076  apache-maven-3.9.11-bin.zip
+\$ cat apache-maven-3.9.11-bin.zip.sha512 
+03e2d65d4483a3396980629f260e25cac0d8b6f7f2791e4dc20bc83f9514db8d0f05b0479e699a5f34679250c49c8e52e961262ded468a20de0be254d8207076
+\$ shasum -a256 apache-maven-3.9.11-bin.zip
+0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb apache-maven-3.9.11-bin.zip
+\end{VerbatimBreak}
+\end{terminalbox}
+
+Die Zahlen stimmen überein. Den zuletzt berechneten Hash legen wir nun noch
+in der Datei ".mvn/wrapper/maven-wrapper.properties" unter dem Schlüssel \texttt{distributionSha256Sum} ab.
+Nun ist alles in Ordnung und auch zukünftig über den Hash geschützt. Wir können 
+die ganzen Dateien, die wir zusätzlich heruntergeladen haben, wieder löschen.
+
+\subsection{Minimales pom.xml}
+Es ginge sicher noch minimalistischer aber mit diesem Stand beginne ich
+meist meine SpringBoot-Projekte wie in Listing \ref{lst:pom.xml} gezeigt.
+
+Wie wir sehen, verwenden wir Spring Boot in der Version 3.5.6. Dies wird über 
+den 'Parent' festgelegt. Alle nachfolgenden Dependencies erhalten keine
+Versionsnummer mehr, da diese implizit über den 'Parent' gegeben sind. Somit
+können wir davon ausgehen, dass nur Pakete mit kompatiblen Versionen 
+geladen werden. Version 3.5.6 ist lediglich jetzt aktuell. Alles im 3.x.x-Bereich
+sollte funktionieren.
+
+\begin{listing}[H]
+\begin{minted}{xml}
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+  http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>ch.zhaw.ssdd.demo</groupId>
+  <artifactId>SpringDemo</artifactId>
+  <packaging>jar</packaging>
+  <version>1.0</version>
+  <name>SpringDemo</name>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>21</maven.compiler.source>
+  </properties>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.6</version>
+    <relativePath />
+  </parent>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+  </dependencies>
+</project>
+\end{minted}
+\caption{pom.xml in einer minimalen Ausführung}
+\label{lst:pom.xml}
+\end{listing}
+
+Nun wäre auch ein guter Zeitpunkt schon mal ein LICENSE-File anzulegen.
+Mein Code ist ohnehin Open Source, daher finde ich die MIT-License
+als angebracht.
+
+\begin{listing}[H]
+\small
+\begin{minted}{text}
+Copyright 2025 Zurich University of Applied Sciences, Peter Heinrich
+
+Permission is hereby granted, free of charge, to any person obtaining a copy 
+of this software and associated documentation files (the “Software”), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+\end{minted}
+\caption{LICENSE}
+\label{lst:license}
+\end{listing}
+
+Zum Schluss fügen wir noch ein .gitignore dem Projekt hinzu, so dass unnötige,
+heruntergeladene oder kompilierte Artefakte nicht im Repository landen.
+
+\begin{listing}[H]
+\begin{minted}{text}
+.mvn/
+target/
+*.log
+*.jar
+\end{minted}
+\caption{.gitignore}
+\label{lst:gitignore}
+\end{listing}
+
+Fertig! Ein guter Stand für unseren ersten commit:
+
+\begin{terminalbox}
+\begin{VerbatimBreak}
+$ git add .
+$ git commit -m "initial commit"
+\end{VerbatimBreak}
+\end{terminalbox}
+
+\section{Hello World, Hello Spring Boot}
+Natürlich folgt jetzt das übliche HelloWorld-Programm. Allerdings direkt
+als Spring-Boot-Applikation.
+
+\begin{listing}[H]
+\begin{minted}{java}
+package ch.zhaw.ssdd.demo;
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class SpringDemo implements CommandLineRunner {
+    public static void main(String[] args) {
+        SpringApplication.run(SpringDemo.class, args);
+    }
+
+    @Override
+    public void run(String... args) throws Exception {
+        System.out.println("Hello, World!");
+    }
+}
+\end{minted}
+\caption{./src/main/java/ch/zhaw/ssdd/demo/SpringDemo.java}
+\label{lst:helloWorld1}
+\end{listing}
+
+Wenn wir mit einer IDE arbeiten, können wir die Main-Methode direkt starten,
+sonst geht das aber auch bequem über maven:
+
+\begin{terminalbox}
+\begin{VerbatimBreak}
+\$ ./mvnw spring-boot:run
+\end{VerbatimBreak}
+\end{terminalbox}
+
+Wir hätten unser Print-Statement auch in die Main-Methode schreiben können, der
+Vorteil des Umweges über den CommandLineRunner liegt darin, dass zum 
+Ausführungszeitpunkt Spring Boot vollständig gestartet ist und wir alle seine
+Vorzüge bereits nutzen können. Schauen wir uns Grundlegende Dinge an, die 
+Spring uns direkt bietet.
+
+\section{Inversion of control pattern}
+Die Idee dieses Patterns stammt aus der Beobachtung, dass starke Abhängigkeiten
+zwischen Klassen entstehen, so dass sich einzelne Teile einer Applikation 
+nicht mehr einzeln instantiieren lassen. Somit sind die Komponenten kaum 
+wiederverwendbar - aber schlimmer noch - auch nicht alleinstehend testbar. Das 
+ist vor allem für Unit-Tests problematisch da wir hier ja das ``Um-''System genau
+nicht mit testen möchten.
+
+Um das zu demonstrieren, überlegen wir uns folgendes Trivialbeispiel: Nehmen
+wir an, wir bauen ein System, das Grafikelemente (Shapes) verarbeitet und 
+diese an einer Stelle drucken möchte. Dafür haben wir uns eine Klasse 
+ShapePrinterService geschrieben:
+
+\begin{listing}[H]
+\begin{minted}{java}
+public class ShapePrinterService {
+    public void printShape(Shape s) {
+        if(s instanceof Triangle) {
+            System.out.println("     *     ");
+            System.out.println("    * *    ");
+            System.out.println("   *   *   ");
+            System.out.println("  *     *  ");
+            System.out.println(" * * * * * ");
+        }
+        else if(s instanceof Square) {
+            // ...
+        }
+        // ...
+    }
+}
+\end{minted}
+\caption{Shape printer in Java-Pseudocode}
+\label{lst:shapePrint}
+\end{listing}
+
+Nehmen wir nun weiter an, dass wir eine Methode (in einer anderen Klasse) 
+haben, die diesen ShapePrinterService benutzt.
+
+\begin{listing}[H]
+\begin{minted}{java}
+public class ListPrinter {
+    private ShapePrinterService shapePrinterService;
+
+    public ListPrinter() {
+        shapePrinterService = new ShapePrinterService();
+    }
+
+    public void printList(List<Shape> shapes) {
+        for (Shape s : shapes) {
+            shapePrinterService.printShape(s);
+        }
+    }
+}
+\end{minted}
+\caption{Invoking the ShapePrintServer Java-Pseudocode}
+\label{lst:listPrint}
+\end{listing}
+
+Wie wir sehen, sind die beiden Klassen ShapePrinterService und ListPrinter fest
+verbunden. ListPrinter lässt sich ohne die konkrete Implementierung des
+ShapePrinterService nicht übersetzen und somit auch nicht einzeln testen.
+Das könnte man, wie in vielen anderen Sprachen auch durch Interfaces lösen.
+\subsection{Interfaces und Implementierungen}
+Eine erste Entkopplung können wir erreichen, in dem wir Beschreibung und 
+Implementierung trennen. Wir würden also ein Interface anlegen, welches den
+ShapePrintService beschreibt:
+
+\begin{listing}[H]
+\begin{minted}{java}
+public interface ShapePrinterService {
+     void printShape(Shape s);
+}
+\end{minted}
+\caption{Interface of ShapePrinterServer}
+\label{lst:shapePrintImple}
+\end{listing}
+
+\begin{listing}[H]
+\begin{minted}{java}
+public class ShapePrinterServiceImpl implements ShapePrintService {
+    public void printShape(Shape s) {
+        if(s instanceof Triangle) {
+            System.out.println("     *     ");
+        // ...
+        }
+    }
+}
+\end{minted}
+\caption{Implementation of ShapePrinterServer in Java-Pseudocode}
+\label{lst:shapePrintImpel}
+\end{listing}
+
+Von dieser Trennung haben wir direkt aber noch keine Vorteile, da wir
+die Impl-Klasse noch immer instantiieren würden. Genau damit müssen wir
+aufhören und die Kontrolle über die Instantiierung externalisieren. Das ist
+der Kern von Inversion-of-Control.
+
+\subsection{Constructor based injection}
+Ein eleganter Weg dies umzusetzen ist es auf Instantiierungen zu verzichten
+und sich die fertigen Objekte im Konstruktor übergeben zu lassen. Im
+folgendem Listing ist dies umgesetzt:
+
+\begin{listing}[H]
+\begin{minted}{java}
+public class ListPrinter {
+    private final ShapePrinterService shapePrinterService;
+
+    public ListPrinter(ShapePrinterService printService) {
+        this.shapePrinterService = printService;
+    }
+
+    public void printList(List<Shape> shapes) {
+        for (Shape s : shapes) {
+            shapePrinterService.printShape(s);
+        }
+    }
+}
+\end{minted}
+\caption{Constructor Based Injection}
+\label{lst:constructorInjection}
+\end{listing}
+
+Somit sind wir einen grossen Schritt weiter. Der ListPrinter ist nicht mehr 
+abhängig von einer bestimmten Implementierung ShapePrinter. Wir können uns 
+leicht vorstellen, dass wir zum Testen eine einfachere Version (andere 
+Instantiierung) verwenden können und wollen.
+SpringBoot automatisiert das für uns. Wenn wir zum Beispiel unsere Klassen
+mit @Component
+dekorieren, wird die ganze Arbeit der Instantiierung der Objekte und ihrer
+Abhängigkeiten zur Laufzeit übernommen. Starten wir (z.B. für einen Test) 
+Ohne den Spring-Kontext werden
+diese Dekoratoren schlichtweg ignoriert und wir können unsere Objekte, z.B.
+selbst verwalten. Aber das sehen wir nachher am Beispiel wenn wir Unit-Tests
+schreiben.
+
+\begin{rulebox}[label=rule:inversionOfControl]{Wir gehen keine
+    Unnötigen Abhängikeiten durch manuelle Instantiierung ein.}
+Der Aufruf von \texttt{new} bindet unsere Klasse unweigerlich and das
+zu instantiirende Objekt. Ist das ungewollt, schwächt das schnell
+die Testbarkeit unseres Codes, da dieser nicht mehr isoliert lauffähig
+ist.
+\end{rulebox}
+
+\subsection{Umgebungs- und Konfigurationsvariablen}
+Weiter zur Basis-Infrastruktur gehört der Umgang mit Umgebungs- und 
+Konfigurationsvariablen. Diese stehen über die Environment-Klasse zur 
+Verfügung. Wir können diese, genau wie im Abschnitt zuvor besprochen,
+einbinden.
+
+\begin{listing}[H]
+\begin{minted}{java}
+@SpringBootApplication
+public class SpringDemo implements CommandLineRunner {
+
+    private final Environment environment;
+
+    public SpringDemo(Environment environment) {
+        this.environment = environment;
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringDemo.class, args);
+    }
+
+    @Override
+    public void run(String... args) throws Exception {
+        System.out.println(environment.getProperty("PATH"));
+    }
+}
+\end{minted}
+\caption{Properties einlesen}
+\label{lst:properties}
+\end{listing}
+
+Automatisch stehen uns somit alle Konfigurationsvariablen (z.B. aus der Datei
+./src/main/resources/application.properties) zur Verfügung aber ebenso auch 
+alle Umgebungsvariablen. Im Beispiel geben wir die Pfad-Variable vom System 
+aus. In einem realen System könnten hier aber auch API\_Keys oder URLs 
+geladen werden, die wir aus Sicherheitsgründen nicht im Repository halten
+können, sondern die der Deployment-Umgebung erst bei der Ausführung übergeben
+werden. 
+
+Alle weiteren Konzepte schauen wir uns aber an kleineren und 
+grösseren Beispieln an.

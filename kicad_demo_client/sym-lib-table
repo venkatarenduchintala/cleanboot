@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "cleanboot")(type "HTTP")(uri "${KIPRJMOD}/lib/cleanboot.kicad_httplib")(options "")(descr ""))
+)

@@ -1,0 +1,1013 @@
+Nun haben wir das Handwerkszeug, um uns einer realistischeren Domäne
+zu widmen. Für diesen Kurs haben wir uns etwas ausgesucht, das auf den ersten 
+Blick sehr einfach aussieht, aber bei genauerer Betrachtung viele interessante
+Details zum Vorschein bringt. Vermutlich ist das bei den meisten 
+nicht-trivialen Domänen nicht anders.
+
+Wir wollen ein System bauen, um elektronische Bauteile zu verwalten, 
+katalogisieren und bestellen zu können. Später werden wir das Ganze 
+sogar in Design-Werkzeuge (EDA - \textit{Electronic Design Automation})
+integrieren und ein Web-Frontend dazu anbieten. Unsere Daten sollen dabei
+in einer relationalen Datenbank gespeichert werden. Eine klassische
+Business-Applikation also.
+
+Die Sachlage ist schnell erklärt. Entwickler elektronischer Baugruppen
+planen in ihren Designs elektronische Bauteile ein. Wir wollen diese
+Komponenten nennen. Das könnte z.B. ein Widerstand mit einem bestimmten Wert
+in einem bestimmten Gehäuse sein. Ganz konkret etwa ein 10k-Ohm-Widerstand in
+einem 0603-SMD-Package. Auf dieser Ebene ist das erst mal komplett abstrakt - 
+hunderte Hersteller würden einem dieses Bauteil liefern können und man 
+könnte diese über zahlreiche \textit{Distributoren} bestellen. Vielfach
+ist der konkrete Hersteller auch irrelevant - so lange das Bauteil den
+Spezifikationen genügt. Viele Betriebe führen daher eigene IPNs
+(\textit{Internal Part Number}), um Bauteile dieser Art zu gruppieren.
+Welches spezifische bestellbare Teil dann durch das Procurement beschafft wird
+ist dem Entwickler egal. Und genau das soll unser System abbilden.
+Es soll den Zusammenhang zwischen abstrakt/intern verwendeten Komponenten und
+tatsächlich bestellbaren Bauteilen herstellen und deren Metadaten verwalten.
+Am Schluss wollen wir dem System eine BOM (\textit{Bill of Material}) übergeben
+und daraus automatisch Bestellinformationen erzeugen können. Damit das 
+halbwegs übersichtlich bleibt, sollen die Bauteile in Kategorien zusammengefasst
+werden. Jede Komponente gehört genau einer Kategorie an, und jede Komponente hat
+ein oder mehrere bestellbare Bauteile. Für alle Bauteile geltende 
+Spezifikationen (vorerst \textit{Attribute} genannt) auf Ebene der Komponente,
+falls alle bestellbaren Bauteile dies gleichermassen erfüllen. Anderenfalls gibt 
+es bauteilspezifische Attribute auf ebene der konkret bestellbaren Teile.
+Das klingt eigentlich übersichtlich und einfach, die meisten von euch werden
+bereits nach diesen paar Zeilen eine recht klare Vorstellung einer passenden
+Objektstruktur im Kopf haben. Aber lasst uns das wieder sauber beginnen
+mit der Modellierung unserer Domäne.
+
+
+\section{Funktionales Domänenmodell - Daten}
+
+Genau wie bei unserem Buch beginnen wir uns mit den Elementen unserer Domäne
+auseinanderzusetzen. Bevor wir uns fragen, was eine ``Komponente'' im abstrakten
+Sinne sein soll, können wir beginnen das zu modellieren, was wir am einfachsten
+beschreiben können. Das wäre in unserer Domäne wohl das tatsächlich bestellbare
+Bauteil.
+
+Wenn wir wieder fordern wollen, dass unsere Domänenelemente immutable sind,
+dann müssen wir unsere Felder wieder in einzelne Datentypen zerlegen. 
+In unserem Objekt müssen wir dann wieder nur noch prüfen, dass diese 
+nicht null sind. So sähe unser Record aus:
+
+\begin{listing}[H]
+\begin{minted}{java}
+public record OrderableItem (
+    ManufacturerPartNumber mpn,
+    StockKeepingUnit sku,
+    Distributor distributor,
+    Quantity minOrderQuantity,
+    Multiplier orderMultiple,
+    UnitPrice price,
+    List<Attribute> attributes
+) {
+}
+\end{minted}
+\caption{OrderableItem als Record-Typ}
+\label{lst:recordOrderItemModel}
+\end{listing}
+
+Und es müssen auch nicht alles einzelne Werte sein, unsere Typen können 
+ihrerseits durchaus auch komposit sein. Unser \texttt{Price}-Typ z.B.
+Neben dem nummerischen Wert des Preises gehört auch die Angabe einer 
+Währung fest zu diesem Typ. Eine blosse zahl macht hier keinen Sinn, da
+man elektronische Teile oft in ausländischen Währungen bezahlt. 
+Je nach Anforderungen würde man noch viel mehr Informationen
+zum Preis einfordern - z.B. ob mit dieser mit oder ohne Mehrwertsteuer 
+angegeben wurde etc. Der Distributor
+bräuchte dann evtl. noch Informationen zum Steuersatz, Verzollung, 
+Versandkostenpauschalen, etc. Das ist noch beliebig ausbaubar. 
+Aber lassen wir das aktuell noch bewusst simpel. Da wir uns ja nun darauf 
+verlassen können, dass alle FeldTypen
+immer nur valide Ausprägungen beinhalten, müssen wir nur noch dafür sorgen, dass
+uns nicht jemand einen Null-Wert setzt. Neben den Null-Checks gibt es noch
+eine fachliche Überprüfung. Es kann nicht sein, dass das Order-Multiple grösser
+als die Mindestbestellmenge ist. Das wäre jetzt eine Konsistenzprüfung zwischen
+den Werten. Dann gibt es am Schluss noch das ``Problem'' mit den Listen-Typen (
+Gleiches gilt auch für Sets und Maps etc.) - so wie deklariert, wäre nur die
+Referenz auf die Liste immutable, aber noch nicht ihr Inhalt. Das darf natürlich 
+nicht sein und wir erzeugen uns daher auf jeden Fall eine Kopie der bestehenden
+Liste, die uns übergeben wurde, damit nicht etwa der Aufrufende noch eine 
+Referenz darauf halten kann, um die Liste im Nachhinein 
+(also nach Verlassen unseres Konstruktors) nochzu manipulieren. 
+In diesem Fall tolerieren wir sogar einen Null-Wert und 
+ersetzen diesen sofort durch eine leere Liste. Die \texttt{copyOf}-Methode
+erzeugt uns übrigens eine read-only-Liste. Da nun sowohl die Referenz als auch die 
+Liste als auch die Elemente (weil es alles Domänen-Elemente sind) dieser Liste 
+selbst immutable sind, 
+ist der gesamte Objektbaum immutable. 
+
+\begin{listing}[H]
+\begin{minted}{java}
+public record OrderableItem(
+        ManufacturerPartNumber mpn,
+        StockKeepingUnit sku,
+        Distributor distributor,
+        Quantity minOrderQuantity,
+        Multiplier orderMultiple,
+        UnitPrice price,
+        List<Attribute> attributes) {
+
+    public OrderableItem {
+        if (mpn == null)
+            throw new IllegalArgumentException(
+                    "An OrderableItem must have a valid MPN");
+        if (sku == null)
+            throw new IllegalArgumentException(
+                    "An OrderableItem must have a valid SKU");
+        if (distributor == null)
+            throw new IllegalArgumentException(
+                    "An OrderableItem must have a valid Distributor");
+        if (minOrderQuantity == null)
+            throw new IllegalArgumentException(
+                    "An OrderableItem must have a valid minOrderQuantity");
+        if (orderMultiple == null)
+            throw new IllegalArgumentException(
+                    "An OrderableItem must have a valid orderMultiple");
+        if (orderMultiple.value() > minOrderQuantity.value())
+            throw new IllegalArgumentException(
+                    "minOrder Quantity cannot be smaller than orderMultiple");
+        if (price == null)
+            throw new IllegalArgumentException(
+                    "An OrderableItem must have a valid Price");
+        if (attributes == null)
+            attributes = List.of();
+        
+        attributes = List.copyOf(attributes);
+    }
+}
+\end{minted}
+\caption{Vollständig validierter OrderItem Record}
+\label{lst:recordValidatedOrderItemModel}
+\end{listing}
+
+\texttt{Enums} sind übrigends auch eine hervorragende Möglichkeit, das Modell 
+auf gültige
+Werte zu beschränken. Nehmen wir z.B. unsere \texttt{Currency}. Im einfachsten
+Fall ist das ebenfalls ein simples \texttt{enum}: 
+
+\begin{listing}[H]
+\begin{minted}{java}
+public enum Currency {
+    CHF, EUR, USD
+}
+\end{minted}
+\caption{Currency als simple Enumeration}
+\label{lst:currencyEnum}
+\end{listing}
+
+Somit können wir nun auch unseren UnitPrice-Record darstellen:
+
+\begin{listing}[H]
+\begin{minted}{java}
+public record UnitPrice(
+    BigDecimal value,
+    Currency currency
+) {
+    public static final BigDecimal MAX_PRICE = new BigDecimal(1000);
+
+    public UnitPrice {
+        if(value == null || value.signum() < 0) {
+            throw new IllegalArgumentException(
+                "A Price must have a positive value");
+        }
+       
+        // We always want to have 4 decimal places in pricing information
+        value = value.setScale(4, RoundingMode.HALF_UP);
+        
+        if(value.compareTo(new BigDecimal("0.0001")) < 0) {
+            throw new IllegalArgumentException(
+                "A single item price must be >= 0.0001 in any currency");
+        }
+
+        if(value.compareTo(MAX_PRICE) > 0) {
+            throw new IllegalArgumentException(
+                "A single item price must be <= " + MAX_PRICE + " in any currency");
+        }
+        if(currency == null) {
+            throw new IllegalArgumentException(
+                "A Price must specify its currency");
+        }
+
+    }
+}
+\end{minted}
+\caption{Price-Record mit Validation}
+\label{lst:priceRecord}
+\end{listing}
+
+Listing \ref{lst:priceRecord} zeigt den Price-Record mit einer Validierung
+des Wertebereichs und der Sicherstellung der geforderten Genauigkeit der 
+Preisangabe. 4 Nachkommastellen sind nötig, da für kleine Bauteile 
+(z.B. Widerstände) die Stückpreise oft weit unterhalb von einem Rappen liegen.
+Zu guter Letzt schauen wir uns noch die Validierung der ManufacturerPartNumber an.
+
+\begin{listing}[H]
+\begin{minted}{java}
+public record ManufacturerPartNumber(
+    String value
+) {
+    public ManufacturerPartNumber {
+        if(value == null) 
+            throw new IllegalArgumentException(
+                "A MPN must not have a null value");
+        if(!value.matches("^[0-9a-zA-Z\\-_.:, ]+$"))
+            throw new IllegalArgumentException(
+                "MPN must match this regexp: \"^[0-9a-zA-Z\\-_.:, ]+$\"");
+        value = value.trim();
+    }
+}
+\end{minted}
+\caption{ManufacturerPartNumber mit Validation}
+\label{lst:mpnRecord}
+\end{listing}
+
+Nun wollen wir noch die Attribute in den Griff bekommen. Diese sind gleich in
+mehrerer Hinsicht interessant. Erstens müssen sie widerspruchsfrei sein, d.h.
+jedes Label darf in jeder Liste auf Ebene der \texttt{OrderableItem} 
+und auch der \texttt{Componnet} nur einmal vorkommen. Alleine daran sehen wir,
+dass eine \texttt{java.util.Map} die bessere Datenstruktur scheint als eine 
+Liste - wenn wir \texttt{AttributeLabel} als \texttt{key} benutzen und 
+\texttt{AttributeValue} als \texttt{value} der Map, sind doppelte Einträge
+innerhalb einer Map nicht möglich. Lediglich zwischen den Maps müssen wir noch
+für Konsistenz sorgen. Wir können sogar noch präziser sein: Ein bestimmtes Label
+ist auf Ebene der \texttt{Component} gesetzt und gilt damit für alle 
+\texttt{OrderableItem} - nun darf es in den Maps der Items nicht mehr vorkommen.
+
+Aber der Reihe nach. Es geht ja darum, physikalische Grössen in Form einer
+Spezifikation in diesen Attributen abzubilden - z.B. eine maximal zulässige
+Spannung oder Temperatur, die das Bauteil aushalten muss. Es geht also um 
+Messgrössen. Dabei wollen wir auch gleich hinterlegen, ob diese Grössen 
+negativ werden können. Listing \ref{lst:quantityEnum} zeigt die Umsetzung mit
+einem \texttt{enum}:
+
+\begin{listing}[H]
+\begin{minted}{java}
+public enum MeasuredQuantity {
+
+    CURRENT(true),
+    VOLTAGE(true),
+    TEMPERATURE(true),
+    POWER(false),
+    RESISTANCE(false),
+    CAPACITANCE(false),
+    INDUCTANCE(false),
+    FREQUENCY(false),
+    TIME(false),
+    LENGTH(false),
+    DIMENSIONLESS(true);
+
+    private final boolean allowNegative;
+
+    Quantity(boolean allowNegative) {
+        this.allowNegative = allowNegative;
+    }
+
+    public void validate(BigDecimal valueInBaseUnit) {
+        if (!allowNegative && valueInBaseUnit.signum() < 0) {
+            throw new IllegalArgumentException(
+                    name() + " must not be negative: " + valueInBaseUnit
+            );
+        }
+    }
+}
+\end{minted}
+\caption{Quantity enum inkl. der Abbildung von Zahlenranges}
+\label{lst:quantityEnum}
+\end{listing}
+
+Hier zeigt sich auch nochmals, wie leistungsfähig \texttt{enums} in der Praxis
+sein können. Neben den Messgrössen benötigen wir noch Einheiten. Auch das ist
+nochmals ein \texttt{enum}. In diesem Fall sogar ein noch ausgefeilteres
+Vorgehen, da
+wir auch gleich noch Informationen zur Umrechnung beifügen wollen. 1000mA sind 
+z.B. 1A und 0°C entsprechen 273.15K. Jede Einheit wird dabei einer Messgrösse
+zugeordnet.
+
+\begin{listing}[H]
+\begin{minted}{java}
+public enum Unit {
+
+    VOLT(MeasuredQuantity.VOLTAGE, "V", BigDecimal.ONE, BigDecimal.ZERO),
+    MILLIVOLT(MeasuredQuantity.VOLTAGE, "mV", new BigDecimal("0.001"), BigDecimal.ZERO),
+    KILOVOLT(MeasuredQuantity.VOLTAGE, "kV", new BigDecimal("1000"), BigDecimal.ZERO),
+    
+    ...
+
+    KELVIN(MeasuredQuantity.TEMPERATURE, "K", BigDecimal.ONE, BigDecimal.ZERO),
+    CELSIUS(MeasuredQuantity.TEMPERATURE, "°C", BigDecimal.ONE, new BigDecimal("273.15"));
+
+    private final MeasuredQuantity quantity;
+    private final String symbol;
+    private final BigDecimal scaleToBase;
+    private final BigDecimal offsetToBase;
+
+    Unit(MeasuredQuantity quantity, String symbol, 
+        BigDecimal scaleToBase, BigDecimal offsetToBase) {
+            this.quantity = quantity;
+            this.symbol = symbol;
+            this.scaleToBase = scaleToBase;
+            this.offsetToBase = offsetToBase;
+    }
+
+    public MeasuredQuantity quantity() {
+        return quantity;
+    }
+
+    public String symbol() {
+        return symbol;
+    }
+
+    public BigDecimal toBase(BigDecimal value) {
+        return value.multiply(scaleToBase).add(offsetToBase);
+    }
+
+    public BigDecimal fromBase(BigDecimal baseValue) {
+        return baseValue.subtract(offsetToBase).divide(scaleToBase);
+    }
+}
+\end{minted}
+\caption{Gekürzt dargestelltes Unit-enum inkl. Umrechnung in Basiseinheiten}
+\label{lst:untiEnum}
+\end{listing}
+
+So einen rigiden Ansatz kann man natürlich nur machen, wenn die Elemente der
+Domäne absolut stabil bleiben (oder es hinnehmbar ist mit einem Update bis
+zum nächsten Release zu warten). Bei uns ist das bis hierhin gegeben - an der
+Physik ändert sich in diesem Bereich nicht mehr viel.
+
+Was jetzt noch fehlt sind unsere Labels. Nennen wir sie mal 
+\texttt{SpecifiedProperty}. Diesen Properties ordnen wir direkt unsere 
+\texttt{Quantities} zu, wie Listing \ref{lst:SpecifiedPropertyEnum} zeigt:
+
+\begin{listing}[H]
+\begin{minted}{java}
+public enum SpecifiedProperty {
+
+    OPERATING_TEMPERATURE_MIN(MeasuredQuantity.TEMPERATURE),
+    OPERATING_TEMPERATURE_MAX(MeasuredQuantity.TEMPERATURE),
+
+    SUPPLY_VOLTAGE_MIN(MeasuredQuantity.VOLTAGE),
+    SUPPLY_VOLTAGE_MAX(MeasuredQuantity.VOLTAGE),
+    
+    POWER_DISSIPATION_MAX(MeasuredQuantity.POWER),
+
+    CLOCK_FREQUENCY_MAX(MeasuredQuantity.FREQUENCY);
+    
+    ...
+
+    private final MeasuredQuantity quantity;
+
+    ComponentAttribute(Quantity quantity) {
+        this.quantity = quantity;
+    }
+
+    public Quantity quantity() {
+        return quantity;
+    }
+}
+\end{minted}
+\caption{Gekürzt dargestelltes SpecifiedProperties-enum}
+\label{lst:SpecifiedPropertyEnum}
+\end{listing}
+
+Hier könnte man wirklich diskutieren, ob man das nicht lieber mit
+Records abbildet um dann flexibler zu sein. Mit diesem Ansatz
+wäre hingegen eine parametrische Suche (wie etwa ``gib mir alle Bauteil
+mit jeder eigenschaft in jenem Bereich'') einfacher umzusetzen.
+
+Nun können wir alles zusammenfügen und endlich unsere Attribute verwalten. Da es
+mehr als nur irgendwelche Attribute sind, wollen wir einen Typ 
+\texttt{SpecificationItem} erstellen.
+Das implementieren wir mit einem record, der die Eigenschaft (samt Einheit), 
+den eigentlichen Wert sowie die Messgrösse speichert. An diesem Punkt können
+(und müssen) wir wieder vollständig validieren. Dieses Tripplet darf weder
+null-Elemente beinhalten noch darf die Messgrösse mit der Eigenschaft
+inkompatibel sein und ausserdem muss der Wertebereich zur Messgrösse passen.
+
+\begin{listing}[H]
+\begin{minted}{java}
+public record SpecificationItem(
+        SpecifiedProperty property,
+        BigDecimal value,
+        Unit unit) {
+    public SpecificationItem {
+        if (property == null)
+            throw new IllegalArgumentException(
+                    "A SpecificationItem must have a property");
+        if (value == null)
+            throw new IllegalArgumentException(
+                    "A SpecificationItem must have a value");
+        if (unit == null)
+            throw new IllegalArgumentException(
+                    "A SpecificationItem must have a unit");
+        if (unit.quantity() != property.quantity()) {
+            throw new IllegalArgumentException(
+                    "Unit " + unit + " does not match Quantity " + property.quantity());
+        }
+        BigDecimal baseValue = unit.toBase(value);
+        property.quantity().validate(baseValue);
+    }
+
+    public BigDecimal valueInBaseUnit() {
+        return unit.toBase(value);
+    }
+}
+\end{minted}
+\caption{Implementierung des SepcificationItem-Record inkl. Validierung}
+\label{lst:SpecifiedPropertyEnum}
+\end{listing}
+
+Die Früchte unserer Arbeit erkennen wir spätestens, wenn wir eine Komponenten
+von Hand instanziieren wollen.
+
+\begin{listing}[H]
+\begin{minted}{java}
+Component c = new Component(
+    new InternalPartNumber("SMD_R_0603_10k"),
+    Category.RESISTORS,
+    List.of(
+        new OrderableItem(
+            new ManufacturerPartNumber("RC0603FR-0710KL"),
+            new StockKeepingUnit("2421850"),
+            new Distributor("Farnell"),
+            new Quantity(10),
+            new Multiplier(10),
+            new UnitPrice(
+                new BigDecimal("0.0058"),
+                Currency.CHF),
+            Map.of(
+                SpecifiedProperty.OPERATING_TEMPERATURE_MAX,
+                new SpecificationItem(
+                    SpecifiedProperty.OPERATING_TEMPERATURE_MAX,
+                    new BigDecimal(155), 
+                    Unit.CELSIUS),
+                SpecifiedProperty.OPERATING_TEMPERATURE_MIN,
+                new SpecificationItem(
+                    SpecifiedProperty.OPERATING_TEMPERATURE_MIN,
+                    new BigDecimal(-55), 
+                    Unit.CELSIUS)))),
+    Map.of());
+
+\end{minted}
+\caption{Manuelle Instanziierung einer Komponente}
+\label{lst:manualComponentInstantiation}
+\end{listing}
+
+Auch ohne, das wir in die Implementierung schauen müssen ist, dieses Stück
+Code in sich lesbar und verständlich. Und wir können uns blind darauf verlassen,
+dass wir keine strukturellen Fehler gemacht haben, denn sonst wird das Objekt 
+erst gar nicht erzeugt. Wir wissen, dass alles vorhanden und entlang der 
+spezifizierten Regeln in sich konsistent ist.
+
+\section{Funktionales Domänenmodell - Unit testing}
+Beim Testen haben wir nun gleich zwei Vorteile. Ersten werden wir weniger Test
+brauchen, da der Aufgabenbereich des Domänen-Modells viel kleiner geworden ist.
+Wir können weder grossartig Konsistenzprobleme erzeugen noch kämen wir mit der
+Welt der Datenbanken oder anderer Schnittstellen in Berührung. Was die 
+Validierung angeht könnten wir für alles und jedes einen Unit-Test schreiben
+aber viel bringen würde das nicht. Was nutzt es die Funktionalität einer
+if-then-throw Anweisung zu prüfen? Dass man wirklich alle Elemente des Records
+auf \texttt{null} prüft kann auch mittels Inspektion geprüft werden. Wenn man 
+da etwas übersieht, würde es einem wahrscheinlich auch beim Schreiben des Tests
+nicht auffallen - insbesondere wenn die gleiche Person den Code und den Test
+schreibt. Das muss man selbst entscheiden, und ist auch teils Geschmacksache,
+TDD-Puristen würden das sicher anders sehen. Damit niemand zu kurz kommt habe
+ich versucht möglichst vollständige Tests zu erzeugen.
+
+Bei komplexeren Validierungen scheinen Test hingegen wertvoller. Bei 
+Grössenvergleichen vertut man sich schnell mal mit der Reihenfolge im
+\texttt{compareTo} oder wundert sich, dass ein \\ \texttt{BigDecimal("10.00")} 
+nicht \texttt{equalTo} \texttt{BigDecimal("10")} ist aber \texttt{compareTo()}
+dennoch eine \texttt{0} liefert. 
+Oder auch bei den String-Validierungen kann man sich schnell
+mit den Regexp irren. Das sollten wir daher auf jeden Fall testen. 
+Da wir keinerlei Abhängigkeiten zu irgendwelchen Elementen ausserhalb unseres 
+Domänenmodells haben und nur Standard-Datentypen benutzen ist praktisch nichts
+an Testinfrastruktur notwendig. Und es geht schnell. Auf meinem Laptop laufen
+alle 52 Tests für das Domänenmodell insgesamt in etwa einer Sekunde, inklusive
+Starten der JVM.
+
+Schauen wir uns zumindest einen dieser Tests mal an:
+
+\begin{listing}[H]
+\begin{minted}{java}
+class StockKeepingUnitTest {
+
+    @Test
+    void nullValueIsRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new StockKeepingUnit(null));
+    }
+
+    @Test
+    void invalidCharactersAreRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new StockKeepingUnit("SKU#001"));
+    }
+
+    @Test
+    void validValueIsAccepted() {
+        StockKeepingUnit sku = new StockKeepingUnit("SKU-001_A");
+        assertEquals("SKU-001_A", sku.value());
+    }
+
+    @Test
+    void valueIsTrimmed() {
+        StockKeepingUnit sku = new StockKeepingUnit("  SKU-001  ");
+        assertEquals("SKU-001", sku.value());
+    }
+}
+\end{minted}
+\caption{UnitTest für die StockKeepingUnit-Klasse}
+\label{lst:skuTestcase}
+\end{listing}
+
+Wie wir sehen prüfen wir in Listing \ref{lst:skuTestcase} im Wesentlichen
+ob unsere Validierungen im Konstruktor wie vorhergesehen funkionieren.
+Entweder müssen Exceptions geworfen werden oder wir überprüfen ob die
+Werte entsprechend unseren Wünschen gesetzt wurden.
+
+Das ist auf Stufe des Domainmodells bereits alles - zumindest solange wir nur
+das Datenmodell anschauen. Nun können wir uns daran machen das erste Stück
+Funktionalität bereitzustellen.
+
+\section{Funktionales Domänenmodell - Services}
+So lange wir rein funktional (mit puren Funktionen) unterwegs sind, verbietet
+sich I/O. Somit gibt es auch keine \texttt{load} oder \texttt{store} Funktionen.
+
+Aber alles was sich mit unserem Domänenmodell abbilden lässt geht wunderbar. 
+Bisher hat sich under Datenmodell nur mit den Komponenten an und für sich
+beschäftigt. Wir werden noch etwas mehr benötigen, denn wir wollen mit unserem
+System ja ausgehend von einem Schaltplan (oder genauer einer Bill-of-Material)
+letztlich eine Bestellung erzeugen. Typischerweise möchte man bei einigen
+wenigen Distributoren (idealerweise nur bei einem) bestellen, nur hat nicht
+immer jeder Distributor alle gewünschten Teile im Angebot. Daher wollen
+wir uns als erstes Feature eine Funktion anschauen, die eine Liste von 
+Komponenten + Mengenangaben nimmt und uns eine Liste
+an Bestellungen (für die einzelnen Distributoren) zurückgibt. Da alle 
+Komponenten mindestens ein OrderableItem besitzen muss das immer funktionieren.
+Zusätzlich wollen wir der Funktion noch einen preferred Supplier mitgeben.
+Der Einfachheit halber verzichten wir momentan auf sämtliche Optimierungen
+wie minimaler Preis, minimale Anzahl von Distributoren etc. Wer Spass hat,
+kann das gerne als Übung umsetzen.
+
+Was wir zunächst brauchen ist eine Struktur um die BOM abzubilden. Das geht mit
+den folgenden beiden Records:
+
+\begin{listing}[H]
+\begin{minted}{java}
+public record BillOfMaterial(
+        List<BillOfMaterialEntry> lines) {
+
+    public BillOfMaterial {
+        if (lines == null)
+            throw new IllegalArgumentException("A BOM must have an entry list");
+        lines = List.copyOf(lines);
+        if (lines.size() < 1)
+            throw new IllegalArgumentException("A BOM must have at least one entry");
+    }
+}
+
+public record BillOfMaterialEntry(
+        InternalPartNumber ipn,
+        Quantity quantity) {
+
+    public BillOfMaterialEntry {
+        if (ipn == null)
+            throw new IllegalArgumentException("A BOM-Entry must have a valid ipn specified");
+        if (quantity == null)
+            throw new IllegalArgumentException("A BOM-Entry must have a valid quantity specified");
+    }
+}
+\end{minted}
+\caption{Zwei Records um BOMs abzubilden.}
+\label{lst:skuTestcase}
+\end{listing}
+
+Zusätzlich benötigen wir noch zwei Records um eine Bestellung abzubilden.
+
+\begin{listing}[H]
+\begin{minted}{java}
+public record Order(
+        Distributor distributor,
+        List<OrderEntry> lines
+) {
+    public Order {
+        if (distributor == null)
+            throw new IllegalArgumentException(
+                "An Order must have a valid distributor specified");
+        if (lines == null)
+            throw new IllegalArgumentException(
+                "An Order must have an entry list");
+        lines = List.copyOf(lines);
+        if (lines.size() < 1)
+            throw new IllegalArgumentException(
+                "An Order must have at least one entry");
+    }
+    public Order withLine(OrderEntry line) {
+        if (line == null)
+            throw new IllegalArgumentException("OrderEntry must not be null");
+        List<OrderEntry> copy = new ArrayList<>(lines);
+        copy.add(line);
+        return new Order(distributor, copy);
+    }
+}
+
+public record OrderEntry(
+        StockKeepingUnit sku,
+        ManufacturerPartNumber mpn,
+        Quantity quantity) {
+    public OrderEntry {
+        if (mpn == null)
+            throw new IllegalArgumentException(
+                "An OrderEntry must have a valid mpn specified");
+        if (sku == null)
+            throw new IllegalArgumentException(
+                "An OrderEntry must have a valid sku specified");
+        if (quantity == null)
+            throw new IllegalArgumentException(
+                "An OrderEntry must have a valid quantity specified");
+    }
+}
+\end{minted}
+\caption{Zwei Records um Bestellungen abzubilden.}
+\label{lst:OrderRecords}
+\end{listing}
+
+Im letzten Listing (\ref{lst:OrderRecords})sieht man auch gut, wie man ein 
+Listen-Element eines immutable objects um einen Eintrag erweitert.
+Man tut das eben nicht sondern erzeugt ein neues, immutable object, das den
+neuen Eintrag additional beinhaltet. Das alte Objekt bleibt wie es ist.
+
+Wem das ungewohnt erscheint, der erinnere sich daran, wie er/sie
+seit jeher mit String umgegangen ist. Auch Strings sind in Java schon immer
+immutable gewesen. Darum gibt String.replace einen neuen String zurück und 
+mutiert den gegeben String eben genau nicht.
+
+Damit ist alles vorbereitet, damit wir unseren ersten Service schreiben können:
+\begin{listing}[H]
+\begin{minted}{java}
+
+public class OrderService {
+
+    public static List<Order> generateOrders(
+            BillOfMaterial bom,
+            Map<InternalPartNumber, Component> componentMap,
+            Distributor preferredDistributor) {
+
+        Map<Distributor, Order> orderMap = new HashMap<>();
+        for (BillOfMaterialEntry bomEntry : bom.lines()) {
+            Component component = componentMap.get(bomEntry.ipn());
+            if (component == null) 
+                throw new IllegalArgumentException(
+                    "All BOM-IPNs must be present in the component map");
+            /*  Since having at least one orderableItem is an invariant
+                we can search the list to find the preferred supplier.
+                If that is not present, we fall back to the first one 
+                specified. */
+            OrderableItem orderableItem = component.orderableItems().stream()
+                    .filter(item -> item.distributor().equals(preferredDistributor))
+                    .findFirst()
+                    .orElse(component.orderableItems().get(0));
+            Distributor distributor = orderableItem.distributor();
+            OrderEntry entry = new OrderEntry(
+                    orderableItem.sku(),
+                    orderableItem.mpn(),
+                    bomEntry.quantity());
+            Order existing = orderMap.get(distributor);
+            Order updated = (existing == null)
+                    ? new Order(distributor, List.of(entry))
+                    : existing.withLine(entry);
+            orderMap.put(distributor, updated);
+        }
+        return List.copyOf(orderMap.values());
+    }
+}
+\end{minted}
+\caption{OrderService mit generateOrders als \textit{pure function}}
+\label{lst:oserServicepure}
+\end{listing}
+
+Alles was wir in Listing \ref{lst:oserServicepure} machen ist schrittweise 
+durch die BOM zu iterieren und 
+Stück für Stück die Bestellungen zu befüllen, die wir uns in einer Map halten.
+Dadurch können wir elegant auch mit mehreren Distributoren gleichzeitig umgehen.
+Am Schluss geben wir nur noch die Inhalte der Map zurück und sind fertig.
+
+Wir erwarten vom Aufrufendem Code, dass er uns passend zur BOM eine Map
+mit den relevanten Komponenten bereitstellt. Das wird später eine
+Datenbankabfrage benötigen. Dennoch können wir die innere Logik völlig losgelöst
+davon mit einfachen Unit-Test überprüfen. Genau wie bei den Domänen-Objekten
+müssen wir auch hier nur für den passenden Input sorgen so dass wir alle
+Pfade einmal ablaufen, wenn wir mit 100\% path-coverage testen wollen. An
+dieser Stelle erreichen wir beides. Einerseits ist das eine
+\textit{pure function} - somit ohne I/O und ohne Seiteneffekte und andererseits
+ausschliesslich von den Datenstrukturen der Domain abhängig.
+
+\section{Applikation und Use-Cases}
+Nachdem die Domäne an und für sich abgebildet ist können wir beginnen
+die Usecases abzubilden. Das geht in diesem (trotzdem noch immer)
+einfachen Fall ganz gut, in grösseren Projekten wird dies wohl eher
+ein iterativer Prozess. Für dieses System sind 6 Usecases vorgesehen - 
+3 Stück für das Frontend, sowie 3 weitere für die Anbindung an das EDA
+System (Listing \ref{lst:labstackUseCases}):
+
+\begin{listing}[H]
+\begin{minted}{java}
+public interface ListAllComponentsUseCase {
+    List<Component> invokeListAllComponents();
+}
+
+public interface RetrieveComponentInfoUseCase {
+    Component invokeRetrieveComponent(InternalPartNumber ipn);
+}
+
+public interface AddOrderableItemUseCase {
+    Component invokeUcAddItem(InternalPartNumber internalPartNumber, 
+        OrderableItem orderableItem);
+}
+
+public interface EDAListCategoriesUseCase {
+    List<Category> invokeEDAListCategories();
+}
+
+public interface EDAListCetegoryEntriesUseCase {
+    List<Component> invokeEDAListCategories(Category category);
+}
+
+public interface EDAAccessPartDetailsUseCase {
+    Component invokeEDAPartDetails(InternalPartNumber ipn);
+}
+\end{minted}
+\caption{6 Usecases als Interfaces modelliert (\textit{Driven Ports})}
+\label{lst:labstackUseCases}
+\end{listing}
+
+An dieser Stelle auch nochmals unbedingt der Hinweis, dass wir die Use Cases
+aus Sicht der Domäne spezifizieren. Hier geht es explizit noch nicht um
+Datenformate für die Präsentation nach aussen hin. Das gilt sowohl für den
+Input, als auch für den Output. Man mag versucht sein, die einzige Methode
+den Use Cases direkt \texttt{invoke} zu nennen aber davon ist abzusehen.
+Sobald ein Service mehrere Dieser Use Cases implementiert, müssten die
+Methoden strikt eine unterschiedliche Signatur aufweisen, was nicht immer
+gegeben sein muss. Für die Les- und Debugbarkeit ist das auch nicht förderlich.
+
+Das schöne an dieser Vereinzelung ist, dass ein einziger Blick in das
+Source-Code-Repository verrät was das System macht, bzw. welche Use Cases es
+implementiert:
+\\
+\dirtree{%
+.1 srcPackageRoot/.
+.2 application/.
+.3 port/.
+.4 in/.
+.5 AddOrderableItemUseCase.java/.
+.5 EDAAccessPartDetailsUseCase.java/.
+.5 EDAListCategoriesUseCase.java/.
+.5 EDAListCategoryEntriesUsecase.java/.
+.5 ListAllComponentsUseCase.java/.
+.5 RetrieveComponentInfoUseCase.java/.
+}%
+
+Um diese Use Cases zu implementieren werden wir I/O benötigen. Dazu werden
+folgende Port-Implementierungen ausserhalb des Hexagons verlangt 
+(Listing \ref{lst:drivingPorts}):
+
+\begin{listing}[H]
+\begin{minted}{java}
+public interface LoggingAdapter {
+    void debug(String message);
+    void info(String message);
+    void warn(String message);
+    void error(String message);
+}
+
+public interface StoragePersistanceAdapter {
+    public void persistNewCompnent(Component component);
+    public void updateComponent(InternalPartNumber original, Component replacement);
+    public Optional<Component> loadComponent(InternalPartNumber ipn);
+    public List<Component> loadAllByCategory(Category category);
+    public List<Component> loadAll();
+    public List<Category> availableCategories();
+}
+\end{minted}
+\caption{I\/O Ports zur Aussenwelt (\textit{Driving Ports})}
+\label{lst:drivingPorts}
+\end{listing}
+
+Durch dieses Vorgehen lässt wich jegliches I/O aus dem inneren unseres Hexagons
+Isolieren. Innerhalb des Domänen-Kerns würden wir aber nicht mal dieses Angebot
+nutzen - dieser soll ja \textit{pure} bleiben. Auf der Schicht aussenrum werden
+hingegen die Usecases implementiert. An diesem Punkt ist I/O unumgänglich.
+
+
+Schauen wir uns dazu exemplarisch die Implementierung 
+des AddOrderableItem-Usecase an:
+\begin{listing}[H]
+\begin{minted}{java}
+@Service
+public class ComponentsUpdateService implements AddOrderableItemUseCase {
+
+    private final RelationalComponentAdapter relationalComponentAdapter;
+    private final LoggingAdapter logger;
+
+    public ComponentsUpdateService(
+            RelationalComponentAdapter relationalComponentAdapter, 
+            LoggingAdapter logger) {
+        this.relationalComponentAdapter = relationalComponentAdapter;
+        this.logger = logger;
+    }
+
+    @Override
+    public Component invokeUcAddItem(InternalPartNumber internalPartNumber,
+            OrderableItem orderableItem) {
+        // *******************
+        // *** Shell: I/O ***
+        // *******************
+        Component component = relationalComponentAdapter.loadComponent(
+                internalPartNumber).orElseThrow(ComponentNotAvailableException::new);
+
+        // *******************
+        // *** Pure Core ***
+        // *******************
+        component = component.withOrderableItem(orderableItem);
+
+        // *******************
+        // *** Shell: I/O ***
+        // *******************
+        relationalComponentAdapter.updateComponent(internalPartNumber, component);
+        logger.info("AddOrderableItemUseCase added: " + orderableItem.mpn() 
+            + " to Component " + component.ipn() );
+        return component;
+    }
+}
+
+\end{minted}
+\caption{Hinzufügen einer Bestelloption zu einem Bauteil}
+\label{lst:addOrderable}
+\end{listing}
+
+An diesem Beispiel (Listing \ref{lst:addOrderable}) sieht man wie im Pattern
+\textit{functional core \& imperative shell} die Trennung zwischen I\/O und
+den \textit{pure domain functions} vollzogen wird. Erstens nehmen wir
+an dieser Stelle selbst keinerlei I/O vor sondern verwenden dazu vollständig
+die Adapter (oder besser gesagt deren Interfaces). In der Mitte dann der
+seiteneffektfreie Domain-Code, der aus einer Komponente + neuer Bestelloption
+eine neue Komponente erzeugt.
+
+Wie schon im Trivialbeispiel sticht auch hier wieder die Lesbarkeit der 
+Signatur der Klasse heraus -
+\textit{ComponentsUpdateService implements AddOrderableItemUseCase}. 
+Durch den strikten Umweg über die Ports bleiben wir auch auf dieser Ebene
+noch vollständig technologiefrei und testbar.
+
+\section{Persistence Adapter}
+Genau wie bei dem Trivialbeispiel benötigen wir einen Persistenzadapter zu
+unserer Datenbank. Dazu erstellen wir uns Entity-Klassen die die Datenhaltung
+der relationalen Datenbank als Objekte Repräsentieren. Es genügt die
+Hauptkomponente \texttt{ComponentEntity} anzuschauen:
+
+\begin{listing}[H]
+\begin{minted}{java}
+@Entity
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class ComponentEntity {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NonNull
+    @Column(unique = true)
+    private String ipn;
+
+    private String symbolRef;
+    
+    private String footprintRef;
+   
+    @Enumerated(EnumType.STRING)
+    private Category category;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<OrderableItemEntity> orderableItems = new ArrayList();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<AttributeEntity> attributes = new ArrayList();
+}
+\end{minted}
+\caption{Component Entity}
+\label{lst:componentEntity}
+\end{listing}
+
+Im Vergleich zum Trivialbeispiel sind hier die Relationen zu anderen
+Entities hervorzuheben. Mit \texttt{@OneToMay} bringen wir eine 
+\textit{1:N}-Relation zum Ausdruck. Weiter fordern wir, dass 
+sowohl die \texttt{OrderableItemEntity}, als auch die 
+\texttt{AttributeEntity} vollständig abhängige Entitäten sind,
+die sowohl bei Persist als z.B. auch bei Delete mit angelegt oder
+entfernt werden. Wir forder sogar, dass es keine nicht-zugeordneten
+Entitäten von diesen beiden Typen geben darf. Enums können direkt
+aus dem Domänenmodell hinterlegt werden; wie in der Annotation
+deklariert, werden sie als Strings auf der Datenbank abgebildet.
+
+Um die Daten in der DB laden und speichern zu können, benötigen wir 
+wieder ein JPA-Repository. In diesem Fall kann es nicht leer bleiben:
+
+
+\begin{listing}[H]
+\begin{minted}{java}
+public interface ComponentRepository extends JpaRepository<ComponentEntity, Long> {
+    Optional<ComponentEntity> findByIpn(String ipn);
+
+    boolean existsByIpn(String ipn);
+
+    List<ComponentEntity> findByCategory(Category category);
+
+    void deleteByIpn(String ipn);
+
+    @Query("SELECT DISTINCT c.category FROM ComponentEntity c")
+    List<Category> findDistinctCategories();
+}
+\end{minted}
+\caption{Component Repository}
+\label{lst:componentRepository}
+\end{listing}
+
+In Listing \ref{lst:componentRepository} haben wir die Standard-Funktionen
+wie \textit{findById, save, deleteByID, usw.} das würde für unsere Zwecke
+aber nicht genügen. Aus Performance-Gründen haben wir eine numerische ID,
+die wir aber ausserhalb der Datenbank gar nicht verwenden. Unsere
+Domänenobjekte kennen diese ID nicht, denn es ist ein rein fachliches
+Artefakt, das nichts mit der Domäne zu tun hat. Genau an solchen Beispielen
+sehen wir die konzeptuellen Vorteile eines Domänengetriebenen Ansatzes.
+So lassen wir überhaupt nicht zu, dass unsere Domänemodelle von
+technische Randbedingungen kontaminiert werden. Damit wir unsere Komponenten
+finden und nach Kategorien ordnen können. Das Interface zeigt hier beide 
+Möglichkeiten Queries zu spezifizieren. Einmal über eine strikte
+Namenskonvention der Interfaces (nachzulesen in \cite{spring_2026_repo}), 
+einmal über die Angabe der Query in JPQL (Spezifikation unter 
+\cite{oracle_2026}).
+
+Somit haben wir alles vorbereitet um unseren Persistenz-Adapter zu erstellen:
+
+\begin{listing}[H]
+\begin{minted}{java}
+@Service
+@AllArgsConstructor
+public class RelationalComponentAdapter implements StoragePersistanceAdapter {
+
+    private ComponentRepository componentRepository;
+
+    @Override
+    public void persistNewCompnent(Component component) {
+
+        if (componentRepository.existsByIpn(component.ipn().value())) {
+            throw new IllegalArgumentException("Component must not yet exist to be saved");
+        }
+
+        ComponentEntity ce = fromDomain(component);
+        componentRepository.save(ce);
+    }
+    ...
+    private OrderableItemEntity fromDomain(OrderableItem oi) {
+        return OrderableItemEntity.builder()
+                .mpn(oi.mpn().value())
+                .sku(oi.sku().value())
+                .distributor(oi.distributor())
+                .minOrderQuantity(oi.minOrderQuantity().value())
+                .orderMultiple(oi.orderMultiple().value())
+                .price(oi.price().value())
+                .currency(oi.price().currency())
+                .attributes(oi.attributes()
+                        .entrySet()
+                        .stream()
+                        .map(e -> fromDomain(e.getValue()))
+                        .collect(Collectors.toList()))
+                .build();
+    }
+    ...
+}
+\end{minted}
+\caption{Persistence Adapter (Klasse nur teilweise dargestellt)}
+\label{lst:persistenceAdapter}
+\end{listing}
+
+Da wir uns nun ausserhalb unseres Hexagons befinden dürfen wir an dieser Stelle
+jeden Technologiebezug haben, den wir uns wünschen. Durch die \texttt{@Service}
+Annotation kann Spring die Instanziierung dieser Klasse vornehmen,
+mittels \texttt{@AllArgsConstructor} erhalten wir über Lombok einen
+Konstruktor, der ein \textit{ComponentRepository} verlangen wird.
+Spring verdrahtet uns das automatisch. An dieser Stelle müssen wir auch
+zwischen Domänen und Entity-Objekten konvertieren. In diesem Fall passiert das
+auf Ebene der Adapterimplementierung. Es hätte aber auch nichts dagegen
+gesprochen diese Abbildung in der Entity-Klasse vorzunehmen. Das wäre
+angebracht, wenn man diese Transformation in mehreren anderen Klassen bräuchte.
+An diesem Punk gelten einfache DRY-Prinzipien.
