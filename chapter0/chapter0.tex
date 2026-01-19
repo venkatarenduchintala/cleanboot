@@ -352,7 +352,7 @@ Skripte benötigen.
 \$ cat > .mvn/wrapper/maven-wrapper.properties << EOF
 wrapperVersion=3.3.4
 distributionType=only-script
-distributionUrl=https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip
+distributionUrl=https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.12/apache-maven-3.9.12-bin.zip
 EOF
 \end{VerbatimBreak}
 \end{terminalbox}
@@ -378,11 +378,11 @@ wir auch die Signatur-Datei.
 
 \begin{terminalbox}
 \begin{VerbatimBreak}
-\$ curl -o apache-maven-3.9.11-bin.zip https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip
-\$ curl -o apache-maven-3.9.11-bin.zip.asc https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip.asc
-\$ curl -o apache-maven-3.9.11-bin.zip.sha512 https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip.sha512
-\$ gpg --verify apache-maven-3.9.11-bin.zip.asc apache-maven-3.9.11-bin.zip
-gpg: Signature made Sat Jul 12 20:32:55 2025 CEST
+\$ curl -o apache-maven-3.9.12-bin.zip https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.12/apache-maven-3.9.12-bin.zip
+\$ curl -o apache-maven-3.9.12-bin.zip.asc https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.12/apache-maven-3.9.12-bin.zip.asc
+\$ curl -o apache-maven-3.9.12-bin.zip.sha512 https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.12/apache-maven-3.9.12-bin.zip.sha512
+\$ gpg --verify apache-maven-3.9.12-bin.zip.asc apache-maven-3.9.12-bin.zip
+gpg: Signature made Sat Dec 13 10:19:06 2025 CET
 gpg:                using RSA key 84789D24DF77A32433CE1F079EB80E92EB2135B1
 gpg:                issuer "sjaranowski@apache.org"
 gpg: Can't check signature: No public key
@@ -405,8 +405,8 @@ Trustverbindung herzustellen.
 \begin{terminalbox}
 \begin{VerbatimBreak}
 \$ gpg --keyserver keys.ubuntu.com --recv-key 84789D24DF77A32433CE1F079EB80E92EB2135B1
-\$ gpg --verify apache-maven-3.9.11-bin.zip.asc apache-maven-3.9.11-bin.zip
-gpg: Signature made Sat Jul 12 20:32:55 2025 CEST
+\$ gpg --verify apache-maven-3.9.12-bin.zip.asc apache-maven-3.9.12-bin.zip
+gpg: Signature made Sat Dec 13 10:19:06 2025 CET
 gpg:                using RSA key 84789D24DF77A32433CE1F079EB80E92EB2135B1
 gpg:                issuer "sjaranowski@apache.org"
 gpg: Good signature from "Slawomir Jaranowski <sjaranowski@apache.org>" [unknown]
@@ -424,12 +424,12 @@ SHA256-Hashwert, der uns nicht mit ausgeliefert wird:
 
 \begin{terminalbox}
 \begin{VerbatimBreak}
-\$ shasum -a 512 apache-maven-3.9.11-bin.zip
-03e2d65d4483a3396980629f260e25cac0d8b6f7f2791e4dc20bc83f9514db8d0f05b0479e699a5f34679250c49c8e52e961262ded468a20de0be254d8207076  apache-maven-3.9.11-bin.zip
+\$ shasum -a 512 apache-maven-3.9.12-bin.zip
+0ef0d074761a55e7b982fd7f2cd6ea2da028289c73156ebd488c0513efbff8a64ac5bc0c11c3b8bbced930ce15238ecef344b0e065ae54f7cdca8c86cf39e736  apache-maven-3.9.11-bin.zip
 \$ cat apache-maven-3.9.11-bin.zip.sha512 
-03e2d65d4483a3396980629f260e25cac0d8b6f7f2791e4dc20bc83f9514db8d0f05b0479e699a5f34679250c49c8e52e961262ded468a20de0be254d8207076
-\$ shasum -a256 apache-maven-3.9.11-bin.zip
-0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb apache-maven-3.9.11-bin.zip
+0ef0d074761a55e7b982fd7f2cd6ea2da028289c73156ebd488c0513efbff8a64ac5bc0c11c3b8bbced930ce15238ecef344b0e065ae54f7cdca8c86cf39e736
+\$ shasum -a 256 apache-maven-3.9.12-bin.zip
+305773a68d6ddfd413df58c82b3f8050e89778e777f3a745c8e5b8cbea4018ef apache-maven-3.9.12-bin.zip
 \end{VerbatimBreak}
 \end{terminalbox}
 
