@@ -5,3 +5,4 @@
 *.run.xml
 *.bcf
 *-backups
+.out/

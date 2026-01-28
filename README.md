@@ -14,6 +14,11 @@ Für die Codebeispiele gilt die noch weniger restriktive MIT-Lizenz.
 Das Material ist explizit noch im Aufbau- / Draft-Status.
 Feedback / Issues und Pull-Requests sind explizit erwünscht.
 
+## LaTeX Build
+Für den Build wird `minted` verwendet. Ab `minted` v3 wird das externe
+Executable `latexminted` benötigt und muss im `PATH` verfügbar sein.
+Falls der Build fehlschlägt, prüfe zuerst die Verfügbarkeit von `latexminted`.
+
 ## Nutzung von generativer KI in diesem Repository
 Die Verwendung von AI zur sprachlichen Überarbeitung, Korrektur und/oder zum Einholen von Feedback  zu Beiträgen  und Code zu diesem Skript ist in diesem Repository akzeptabel, eine originäre Erstellung der Inhalte durch eine AI jedoch nicht. 
 

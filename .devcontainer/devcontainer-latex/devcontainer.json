@@ -1,0 +1,137 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "name": "latex-devcontainer",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/devcontainer/workspace,type=bind,consistency=cached",
+  "workspaceFolder": "/home/devcontainer/workspace",
+  "remoteUser": "devcontainer",
+  "containerUser": "devcontainer",
+  "containerEnv": {
+    "CXXFLAGS": "-std=c++20",
+    "CFLAGS": "-std=c11",
+    "npm_config_cxxflags": "-std=c++20",
+    "TZ": "Europe/Zurich"
+  },
+  "shutdownAction": "stopContainer",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "james-yu.latex-workshop",
+        "aaron-bond.better-comments",
+        "vscodevim.vim",
+        "shardulm94.trailing-spaces",
+        "stkb.rewrap",
+        "openai.chatgpt"
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "editor.formatOnSave": true,
+        "files.associations": {
+          "*.tex": "latex"
+        },
+        "latex-workshop.latex.autoClean.run": "onBuilt",
+        "latex-workshop.latex.clean.subfolder.enabled": true,
+        "latex-workshop.latex.recipes": [
+          {
+            "name": "pdftex -> biber -> pdftex* 2",
+            "tools": [
+              "pdftex",
+              "biber",
+              "pdftex",
+              "pdftex"
+            ]
+          },
+          {
+            "name": "latexmk",
+            "tools": [
+              "latexmk"
+            ]
+          }
+        ],
+        "latex-workshop.latex.tools": [
+          {
+            "name": "pdftex",
+            "command": "latexmk",
+            "args": [
+              "--shell-escape",
+              "-synctex=1",
+              "-interaction=nonstopmode",
+              "-file-line-error",
+              "-pdftex",
+              "%DOC%"
+            ]
+          },
+          {
+            "name": "biber",
+            "command": "biber",
+            "args": [
+              "%DOCFILE%"
+            ]
+          },
+          {
+            "name": "latexmk",
+            "command": "latexmk",
+            "args": [
+              "-synctex=1",
+              "-interaction=nonstopmode",
+              "-file-line-error",
+              "-pdf",
+              "-outdir=%OUTDIR%",
+              "%DOC%"
+            ]
+          }
+        ],
+        // region chktex
+        "latex-workshop.linting.chktex.enabled": true,
+        "latex-workshop.linting.chktex.exec.path": "/usr/local/bin/chktex",
+        // endregion
+        // region latexindent
+        "latex-workshop.latexindent.enabled": true,
+        //* This needs to be left as the command because the installation
+        //*   location varies across architecture builds
+        "latex-workshop.latexindent.exec.path": "latexindent",
+        "latex-workshop.formatting.latexindent.args": [
+          "-c",
+          "%DIR%/",
+          "%TMPFILE%",
+          "-y=defaultIndent: '%INDENT%'"
+        ],
+        // endregion
+        // region syntex
+        "latex-workshop.synctex.afterBuild.enabled": true
+        // endregion
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": true,
+      "installOhMyZshConfig": true,
+      "upgradePackages": true,
+      "installSsl": true,
+      "username": "devcontainer",
+      "userUid": "1001",
+      "userGid": "1001"
+    },
+    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+      "packages": "curl,nano,make,gcc,g++,gdb,automake,build-essential,direnv",
+      "upgradePackages": false
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.13",
+      "installTools": true,
+      "toolsToInstall": "pygments"
+    },
+    "ghcr.io/prulloac/devcontainer-features/latex:1": {
+      "scheme": "scheme-full", // schme-basic, scheme-medium, scheme-full
+      "mirror": "https://mirror.ctan.org/systems/texlive/tlnet/",
+      "packages": "latexmk,biber,chktex,latexindent,pgfplots,minted,biblatex" //,upquote,setspace,lineno,caption,babel-german,chngcntr,svg,transparent,csquotes,enumitem,tcolorbox,tikzfill,pdfcol,listings,listingsutf8,dirtree,draftwatermark"
+    }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "45gb"
+  }
+}
