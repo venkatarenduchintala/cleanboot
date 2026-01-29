@@ -70,10 +70,10 @@
 				"java.server.launchMode": "Standard",
 				"java.jdt.ls.java.home": "/usr/local/sdkman/candidates/java/current",
 				"java.jdt.ls.lombokSupport.enabled": true,
-				"java.compile.nullAnalysis.mode": "enabled",
+				"java.compile.nullAnalysis.mode": "automatic",
 				"java.configuration.runtimes": [ 
 					{
-						"name": "JavaSE-Current",
+						"name": "JavaSE-21",
 						"path": "/usr/local/sdkman/candidates/java/current",
 						"default": true
 					},
