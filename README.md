@@ -14,6 +14,11 @@ Für die Codebeispiele gilt die noch weniger restriktive MIT-Lizenz.
 Das Material ist explizit noch im Aufbau- / Draft-Status.
 Feedback / Issues und Pull-Requests sind explizit erwünscht.
 
+## (EXPERIMENTAL) Devcontainers
+Devcontainer support is currently experimental but not yet stable or necessarily safe to use.
+Currently it runs on 3rd party images. Be careful if you experiment with this features.
+Especially on the LaTeX part. The Java container should be fine, though.
+
 ## LaTeX Build
 Für den Build wird `minted` verwendet. Ab `minted` v3 wird das externe
 Executable `latexminted` benötigt und muss im `PATH` verfügbar sein.
