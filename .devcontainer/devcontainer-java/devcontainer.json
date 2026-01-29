@@ -64,7 +64,8 @@
 				"vmware.vscode-spring-boot",
 				"vscjava.vscode-spring-initializr",
 				"vscjava.vscode-java-debug",
-				"openai.chatgpt"
+				"openai.chatgpt",
+				"SonarSource.sonarlint-vscode"
 			],
 			"settings": {
 				"java.server.launchMode": "Standard",
