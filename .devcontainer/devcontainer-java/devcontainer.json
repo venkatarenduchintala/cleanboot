@@ -54,9 +54,8 @@
 				"vmware.vscode-spring-boot",
 				"vscjava.vscode-spring-initializr",
 				"vscjava.vscode-java-debug",
-				"openai.chatgpt",
-				"SonarSource.sonarlint-vscode"
-			],
+				"openai.chatgpt"
+				],
 			"settings": {
 				"java.server.launchMode": "Standard",
 				"java.jdt.ls.java.home": "/usr/local/sdkman/candidates/java/current",
