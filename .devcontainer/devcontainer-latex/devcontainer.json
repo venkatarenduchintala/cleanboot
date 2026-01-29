@@ -1,16 +1,12 @@
 {
-  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
-  "name": "cleanboot-latex-devcontainer",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/home/devcontainer/workspace,type=bind,consistency=cached",
-  "workspaceFolder": "/home/devcontainer/workspace",
-  "remoteUser": "devcontainer",
-  "containerUser": "devcontainer",
-  "containerEnv": {
-    "CXXFLAGS": "-std=c++20",
-    "CFLAGS": "-std=c11",
-    "npm_config_cxxflags": "-std=c++20",
-    "TZ": "Europe/Zurich"
+  "name": "latex-devcontainer-secure",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
   },
+  "workspaceFolder": "/home/devcontainer/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/devcontainer/workspace,type=bind,consistency=cached",
+  "remoteUser": "devcontainer",
   "shutdownAction": "stopContainer",
   "customizations": {
     "vscode": {
@@ -19,8 +15,7 @@
         "aaron-bond.better-comments",
         "vscodevim.vim",
         "shardulm94.trailing-spaces",
-        "stkb.rewrap",
-        "openai.chatgpt"
+        "stkb.rewrap"
       ],
       "settings": {
         "files.eol": "\n",
@@ -33,15 +28,11 @@
         "latex-workshop.latex.recipes": [
           {
             "name": "Clean Build",
-            "tools": [
-              "clean-build"
-            ]
+            "tools": ["clean-build"]
           },
           {
-            "name": "Build Cleanboot (latexmk)",
-            "tools": [
-              "latexmk-cleanboot"
-            ]
+            "name": "Build Script (latexmk)",
+            "tools": ["latexmk-build"]
           }
         ],
         "latex-workshop.latex.tools": [
@@ -50,63 +41,28 @@
             "command": "bash",
             "args": [
               "-lc",
-              "rm -rf %DIR%/.out && rm -f *.bbl *.bcf *.blg *.run.xml quit.tex script.pdf && latexmk --shell-escape -synctex=1 -interaction=nonstopmode -file-line-error -pdf -halt-on-error -aux-directory=%DIR%/.out -outdir=%DIR%/.out -out2dir=%DIR%/.out %DOC% && cp -f \"%DIR%/.out/%DOCFILE%.pdf\" \"%DIR%/%DOCFILE%.pdf\""
+              "rm -rf %DIR%/.out && rm -f *.bbl *.bcf *.blg *.run.xml quit.tex script.pdf && latexmk --shell-escape -synctex=1 -interaction=nonstopmode -file-line-error -pdf -halt-on-error -auxdir=%DIR%/.out -outdir=%DIR%/.out -out2dir=%DIR%/.out %DOC% && cp -f \"%DIR%/.out/%DOCFILE%.pdf\" \"%DIR%/%DOCFILE%.pdf\""
             ]
+          },
+          {
+            "name": "latexmk-build",
+            "command": "latexmk",
+            "args": ["-pdf", "-shell-escape", "-interaction=nonstopmode", "%DOC%"]
           }
         ],
-        // region chktex
         "latex-workshop.linting.chktex.enabled": true,
-        "latex-workshop.linting.chktex.exec.path": "/usr/local/bin/chktex",
-        // endregion
-        // region latexindent
         "latex-workshop.latexindent.enabled": true,
-        //* This needs to be left as the command because the installation
-        //*   location varies across architecture builds
         "latex-workshop.latexindent.exec.path": "latexindent",
-        "latex-workshop.formatting.latexindent.args": [
-          "-c",
-          "%DIR%/",
-          "%TMPFILE%",
-          "-y=defaultIndent: '%INDENT%'"
-        ],
-        // endregion
-        // region syntex
         "latex-workshop.synctex.afterBuild.enabled": true,
         "latex-workshop.latex.outDir": "%DIR%/.out",
         "latex-workshop.view.pdf.viewer": "tab"
-        // endregion
       }
     }
   },
-  "features": {
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": true,
-      "configureZshAsDefaultShell": true,
-      "installOhMyZsh": true,
-      "installOhMyZshConfig": true,
-      "upgradePackages": true,
-      "installSsl": true,
-      "username": "devcontainer",
-      "userUid": "1001",
-      "userGid": "1001"
-    },
-    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
-      "packages": "curl,nano,make,gcc,g++,gdb,automake,build-essential,direnv,ghostscript,inkscape",
-      "upgradePackages": false
-    },
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.13",
-      "installTools": true,
-      "toolsToInstall": "pygments"
-    },
-    "ghcr.io/prulloac/devcontainer-features/latex:1": {
-      "scheme": "scheme-full", // schme-basic, scheme-medium, scheme-full
-      "mirror": "https://mirror.ctan.org/systems/texlive/tlnet/"
-    }
-  },
+  "features": {},
   "hostRequirements": {
     "cpus": 4,
     "memory": "8gb",
-    "storage": "45gb"
+    "storage": "10gb"
   }
 }

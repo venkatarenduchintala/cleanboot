@@ -7,7 +7,7 @@ OUTDIR_SUBDIRS ?= frontmatter chapter0 chapter1 chapter2 backmatter
 all: check-minted
 	mkdir -p $(OUTDIR) $(addprefix $(OUTDIR)/,$(OUTDIR_SUBDIRS))
 	$(LATEXMK) -pdf -shell-escape -interaction=nonstopmode -halt-on-error \
-		-auxdir=$(OUTDIR) -outdir=$(OUTDIR) -out2dir=$(WORKSPACE) $(TEX)
+		-cd -auxdir=$(OUTDIR) -outdir=$(OUTDIR) $(TEX)
 	cp $(OUTDIR)/script.pdf ./script.pdf
 
 check-minted:

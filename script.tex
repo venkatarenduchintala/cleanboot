@@ -15,7 +15,7 @@
 \onehalfspacing
 
 % Code highlighting with minted
-\usepackage{minted}
+\usepackage[outputdir=.out]{minted}
 \usemintedstyle{colorful} % You can change the style (e.g., friendly, bw, etc.)
 \usepackage{caption} % for caption formatting
 \usepackage{float} % for [H] placement
@@ -28,7 +28,7 @@
 \usepackage{longtable}
 \usepackage{tikz}
 \usetikzlibrary{positioning, arrows.meta, fit, shapes, backgrounds}
-\usepackage[table]{xcolor}
+\PassOptionsToPackage{table}{xcolor}
 \usepackage[hidelinks]{hyperref}
 \usepackage{graphicx}
 \usepackage{csquotes} % Recommended with babel
@@ -106,7 +106,7 @@
 \SetWatermarkText{DRAFT}
 \SetWatermarkScale{3}
 \SetWatermarkColor[gray]{0.97}
-\SetWatermarkAngle{45}        
+\SetWatermarkAngle{45}
 \SetWatermarkFontSize{2cm}
 
 \usepackage[
