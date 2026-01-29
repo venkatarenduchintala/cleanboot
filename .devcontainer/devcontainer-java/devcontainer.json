@@ -29,16 +29,6 @@
 			"username": "devcontainer",
 			"userUid": "1001",
 			"userGid": "1001"
-		},
-		"ghcr.io/audacioustux/devcontainers/common-utils-extras:1": {},
-		"ghcr.io/devcontainers-extra/features/zsh-plugins": {
-			"plugins": "zsh-autosuggestions, zsh-syntax-highlighting",
-			"username": "devcontainer",
-			"omzPlugins": "git jenv mvn gradle"
-		},
-		"ghcr.io/georgofenbeck/features/lazygit-linuxbinary:1": {},
-		"ghcr.io/devcontainers-extra/features/tldr:2": {
-			"version": "latest"
 		}
 	},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
@@ -81,12 +71,7 @@
 					{
 						"name": "JavaSE-21",
 						"path": "/usr/local/sdkman/candidates/java/21.0.9-tem"
-					},
-					{
-						"name": "JavaSE-17",
-						"path": "/usr/local/sdkman/candidates/java/17.0.17-tem"
 					}
-
 				]
 			}
 		}
